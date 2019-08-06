@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 
         vTimesTrack[ni]=ttrack;
 
-        // Wait to load the next frame
+        // Wait to load the next frame  //时间按照时间戳上的来，若还未到处理下一帧的时间，则等待1e-6s
         double T=0;
         if(ni<nImages-1)
             T = vTimestamps[ni+1]-tframe;
@@ -125,6 +125,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
+
 void LoadImages(const string &strFile, vector<string> &vstrImageFilenames, vector<double> &vTimestamps)
 {
     ifstream f;
@@ -142,7 +143,7 @@ void LoadImages(const string &strFile, vector<string> &vstrImageFilenames, vecto
         getline(f,s);
         if(!s.empty())
         {
-            stringstream ss;
+            stringstream ss;    //stringstream可以逐个输出字符串中的单位(空格或其他分隔符隔开)
             ss << s;
             double t;
             string sRGB;
