@@ -15,6 +15,8 @@
 
 namespace ORB_SLAM2
 {
+class Frame;
+class KeyFrame;
 
 class Detection
 {
@@ -42,6 +44,8 @@ public:
     inline Eigen::Vector4d toBbox();
     //todo: data association
     //void BoxTacking();
+
+    std::mutex mMutexDetTrackings;
 
 };
 
@@ -80,6 +84,8 @@ public:
     //to initial the quadric with muti frames constrain-> BoxTracking
     //to modify
     void QuadricInit(std::map<Frame*,size_t> DetTracking);
+
+    std::mutex mMutexQuadrics;
 };
 
 } //namespace ORBSLAM2

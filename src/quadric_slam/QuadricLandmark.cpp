@@ -7,6 +7,7 @@
 
 namespace ORB_SLAM2
 {
+class Converter;
 
 /****************
  * Detection*****
@@ -34,7 +35,7 @@ inline Eigen::Vector4d Detection::toBbox()
 
 void Detection::AddTracking(Frame *pF, size_t idx)
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexDetTrackings);
     if (mDetTracking.count(pF)) //if already containing the KF -> return
         return;
     mDetTracking[pF] = idx;
@@ -51,25 +52,24 @@ void Detection::AddTracking(Frame *pF, size_t idx)
 
 void Detection::EraseTracking(Frame *pF)
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexDetTrackings);
     if (mDetTracking.count(pF))
     {
-        int idx = mDetTracking[pF];
+        //int idx = mDetTracking[pF];
         nTrackings--;
-
         mDetTracking.erase(pF);
     }
 }
 
 std::map<Frame *, size_t> Detection::GetTrackings()
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexDetTrackings);
     return mDetTracking;
 }
 
 int Detection::Trackings()
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexDetTrackings);
     return nTrackings;
 }
 
@@ -78,7 +78,7 @@ int Detection::Trackings()
  * QuadricLandmark*
  * ****************/
 
-QuadricLandmark::nNextId=0;
+long unsigned int QuadricLandmark::nNextId=0;
 //todo: construct
 QuadricLandmark::QuadricLandmark()
 {
@@ -87,11 +87,13 @@ QuadricLandmark::QuadricLandmark()
     mnId=nNextId++;
     mbIsInitialized = false;
     mbIsInitialized = false;
+    
+    //待补充
 }
 
 void QuadricLandmark::AddObservation(KeyFrame *pKF, size_t idx)
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexQuadrics);
     if (mObservations.count(pKF)) //if already containing the KF -> return
         return;
     mObservations[pKF] = idx;
@@ -108,7 +110,7 @@ void QuadricLandmark::AddObservation(KeyFrame *pKF, size_t idx)
 
 void QuadricLandmark::EraseObservation(KeyFrame *pKF)
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexQuadrics);
     if (mObservations.count(pKF))
     {
         int idx = mObservations[pKF];
@@ -120,13 +122,13 @@ void QuadricLandmark::EraseObservation(KeyFrame *pKF)
 
 std::map<KeyFrame *, size_t> QuadricLandmark::GetObservations()
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexQuadrics);
     return mObservations;
 }
 
 int QuadricLandmark::Observations()
 {
-    //unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexQuadrics);
     return nObs;
 }
 
@@ -147,7 +149,7 @@ void QuadricLandmark::QuadricInit(std::map<Frame*,size_t> DetTracking)
     {
         Eigen::Vector4d box;
         int idx=det->second;
-        box=det->first->mDetctions[idx]->toBox();
+        box=det->first->mvpDetctions[idx]->toBox();
     }
 
     //提取各帧对应projection matrix R|t,提取Kalib
@@ -155,13 +157,13 @@ void QuadricLandmark::QuadricInit(std::map<Frame*,size_t> DetTracking)
         Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>> vProjMats;
 
     Eigen::Matrix3d Kalib;
-    Kalib = Converter::toMatrix3d(DetTrackings.begin()->first->mK);
+    Kalib = Converter::toMatrix3d(DetTracking.begin()->first->mK);
 
-    for (auto det = DetTrackings.begin(); det != DetTrackings.end(); det++)
+    for (auto det = DetTracking.begin(); det != DetTracking.end(); det++)
     {
         Eigen::Matrix<double, 3, 4> temp;
-        temp = converter.toProjMat(det->first->mTcw);
-        vProjMats.pushback(temp);
+        temp = Converter::toProjMat(det->first->mTcw);
+        vProjMats.push_back(temp);
     }
     assert(vProjMats.size() == vBoxes.size());
 
@@ -193,7 +195,7 @@ void QuadricLandmark::QuadricInit(std::map<Frame*,size_t> DetTracking)
     {
         mQuadricMeas=g2o::Quadric(rotation, translation, shape);
         //mQuadricVertex = new g2o::VertexQuadric();//放入构造函数
-        mQuadricVertex->setEstimate(mQuadricMeas); 
+        mpQuadricVertex->setEstimate(mQuadricMeas); 
         mbIsInitialized=true;
     }
 }

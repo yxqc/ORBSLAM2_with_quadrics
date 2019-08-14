@@ -112,7 +112,7 @@ void ComputeLineMat(
         bboxes,
     std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>&
         lines) {
-  for (int i = 0; i < bboxes.size(); i++) {
+  for (int i = 0; i < (int)bboxes.size(); i++) {
     lines.push_back(Eigen::Vector3d(1, 0, -(bboxes[i](0) - bboxes[i](2) / 2)));
     lines.push_back(Eigen::Vector3d(0, 1, -(bboxes[i](1) - bboxes[i](3) / 2)));
     lines.push_back(Eigen::Vector3d(1, 0, -(bboxes[i](0) + bboxes[i](2) / 2)));
@@ -209,7 +209,7 @@ void ComputePlanesMat(
         lines,
     std::vector<Eigen::Vector4d, Eigen::aligned_allocator<Eigen::Vector4d>>&
         planes) {
-  for (int i = 0; i < lines.size(); i++) {
+  for (int i = 0; i < (int)lines.size(); i++) {
     //    cout << lines[i] << endl;
     //    cout << calib * projection_matrix[i / 4] << endl;
     planes.push_back((calib * projection_matrix[i / 4]).transpose() * lines[i]);
@@ -335,13 +335,13 @@ void ComputeConicsMat(
     std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>>&
         conics_matrix) {
   Eigen::Matrix3d dual_conic;
-  for (int i = 0; i < projection_matrix.size(); i++) {
+  for (int i = 0; i < (int)projection_matrix.size(); i++) {
     dual_conic = projection_matrix[i] * constrained_quadric *
                  projection_matrix[i].transpose();
     conics_matrix.push_back(dual_conic.inverse() *
                             cbrt(dual_conic.determinant()));
   }
-  for (int i = 0; i < projection_matrix.size(); i++) {
+  for (int i = 0; i < (int)projection_matrix.size(); i++) {
     cout << "The conic of frame " << i << " is " << endl
          << conics_matrix[i] << endl
          << endl;

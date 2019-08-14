@@ -41,6 +41,7 @@ namespace ORB_SLAM2
 
 class MapPoint;
 class KeyFrame;
+class Detection;
 
 class Frame
 {

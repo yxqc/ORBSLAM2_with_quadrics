@@ -41,6 +41,8 @@ class Map;
 class MapPoint;
 class Frame;
 class KeyFrameDatabase;
+class Detection;
+class QuadricLandmark;
 
 class KeyFrame
 {
