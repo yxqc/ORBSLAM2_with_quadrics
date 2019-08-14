@@ -30,6 +30,8 @@
 #include "KeyFrame.h"
 #include "ORBextractor.h"
 
+#include "quadric_slam/QuadricLandmark.h"   //quadric slam
+
 #include <opencv2/opencv.hpp>
 
 namespace ORB_SLAM2
@@ -133,14 +135,19 @@ public:
 
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
+    //立体图像时，undistorted是冗余的，因为图像必须被纠正。（why？
     // In the RGB-D case, RGB images can be distorted.
+    //RGB-D则会出现畸变的情况
     std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
     std::vector<cv::KeyPoint> mvKeysUn;
 
     // Corresponding stereo coordinate and depth for each keypoint.
     // "Monocular" keypoints have a negative value.
-    std::vector<float> mvuRight;
+    std::vector<float> mvuRight;    //float means sub_pixel
     std::vector<float> mvDepth;
+
+    //object detection results (added by song)
+    std::vector<Detection*> mvpDetections;
 
     // Bag of Words Vector structures.
     DBoW2::BowVector mBowVec;

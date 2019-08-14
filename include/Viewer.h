@@ -85,7 +85,6 @@ private:
 
 }
 
-
 #endif // VIEWER_H
 	
 

@@ -69,6 +69,8 @@ src/KeyFrameDatabase.cc
 src/Sim3Solver.cc
 src/Initializer.cc
 src/Viewer.cc
+src/quadric_slam/matrix_utils.cpp #added by song
+src/quadric_slam/QuadricLandmark.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

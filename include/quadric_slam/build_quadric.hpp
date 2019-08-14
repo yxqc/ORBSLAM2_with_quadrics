@@ -1,4 +1,7 @@
-﻿#include <Eigen/Core>
+﻿#ifndef BUILD_QUADRIC_HPP
+#define  BUILD_QUADRIC_HPP
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <Eigen/SVD>
@@ -344,3 +347,5 @@ void ComputeConicsMat(
          << endl;
   }
 }
+
+#endif

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <quadric_slam/g2o_Object.h>
-#include <build_quadric.hpp>
+#include <quadric_slam/build_quadric.hpp>
 #include <vector>
 
 #define QUALITY_THRESHOLD 0.5

@@ -31,6 +31,8 @@
 
 #include <mutex>
 
+#include "quadric_slam/Object_landmark.h"   //quadric slam
+#include "quadric_slam/g2o_Object.h"
 
 namespace ORB_SLAM2
 {
@@ -116,6 +118,8 @@ public:
         return pKF1->mnId<pKF2->mnId;
     }
 
+    //build quadric landmark
+    void InitQuadricLandmark();
 
     // The following variables are accesed from only 1 thread or never change (no mutex needed).
 public:
@@ -165,6 +169,10 @@ public:
     const std::vector<float> mvuRight; // negative value for monocular points
     const std::vector<float> mvDepth; // negative value for monocular points
     const cv::Mat mDescriptors;
+    
+   //object detection results (added by song)
+    std::vector<Detection*> mvpDetections;
+    std::vector<QuadricLandmark*> mvpQuadricLandmarks;
 
     //BoW
     DBoW2::BowVector mBowVec;

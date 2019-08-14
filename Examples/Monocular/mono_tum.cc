@@ -41,6 +41,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    //是否是离线模式，todo：放在argv中
+    bool OnlineMode=false;
+
     // Retrieve paths to images
     vector<string> vstrImageFilenames;
     vector<double> vTimestamps;
@@ -67,6 +70,12 @@ int main(int argc, char **argv)
         // Read image from file
         im = cv::imread(string(argv[3])+"/"+vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
         double tframe = vTimestamps[ni];
+
+        //如果是离线模式，则从文件中读取detection
+        if(!OnlineMode)
+        {
+            //todo
+        }
 
         if(im.empty())
         {

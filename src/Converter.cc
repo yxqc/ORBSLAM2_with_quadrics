@@ -46,6 +46,17 @@ g2o::SE3Quat Converter::toSE3Quat(const cv::Mat &cvT)
     return g2o::SE3Quat(R,t);
 }
 
+//to Eigen::Matrix<double,3,4> R|t
+Eigen::Matrix<double,3,4> Converter::toProjMat(const cv::Mat &cvT)
+{
+    Eigen::Matrix<double,3,4> ProjMat;
+    ProjMat << cvT.at<float>(0,0), cvT.at<float>(0,1), cvT.at<float>(0,2), cvT.at<float>(0,3),
+               cvT.at<float>(1,0), cvT.at<float>(1,1), cvT.at<float>(1,2), cvT.at<float>(1,3),
+               cvT.at<float>(2,0), cvT.at<float>(2,1), cvT.at<float>(2,2), cvT.at<float>(2,3);
+
+    return ProjMat;
+}
+
 cv::Mat Converter::toCvMat(const g2o::SE3Quat &SE3)
 {
     Eigen::Matrix<double,4,4> eigMat = SE3.to_homogeneous_matrix();
