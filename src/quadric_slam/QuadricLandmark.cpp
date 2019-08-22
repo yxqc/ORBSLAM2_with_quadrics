@@ -149,7 +149,7 @@ void QuadricLandmark::QuadricInit(std::map<Frame*,size_t> DetTracking)
     {
         Eigen::Vector4d box;
         int idx=det->second;
-        box=det->first->mvpDetctions[idx]->toBox();
+        box=det->first->mvpDetections[idx]->toBox();
     }
 
     //提取各帧对应projection matrix R|t,提取Kalib

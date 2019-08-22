@@ -8,6 +8,7 @@
 #include"KeyFrame.h"
 #include"Frame.h"
 #include"Map.h"
+#include"MapPoint.h"
 
 #include<opencv2/core/core.hpp>
 #include<mutex>
@@ -17,6 +18,7 @@ namespace ORB_SLAM2
 {
 class Frame;
 class KeyFrame;
+class MapPoint;
 
 class Detection
 {
@@ -33,6 +35,11 @@ public:
     //连续帧关联的detections，frame*->detection[size_t]
     std::map<Frame*,size_t> mDetTracking;
     int nTrackings;   // tracking_box' count
+
+    //应投影在检测框内的KP mappoint
+    std::vector<MapPoint*> mvpRelatedMP;
+    std::vector<cv::KeyPoint*> mvpRealtedKP;
+
     std::map<Frame*,size_t> GetTrackings(); 
     int Trackings();
     void AddTracking(Frame* pKF,size_t idx);

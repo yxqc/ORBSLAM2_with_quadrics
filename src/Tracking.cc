@@ -1132,7 +1132,7 @@ void Tracking::CreateNewKeyFrame()
         }
     }
 
-    mpLocalMapper->InsertKeyFrame(pKF);
+    mpLocalMapper->InsertKeyFrame(pKF); //数据交流
 
     mpLocalMapper->SetNotStop(false);
 
