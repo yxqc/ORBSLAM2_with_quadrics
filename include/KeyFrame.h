@@ -31,7 +31,7 @@
 
 #include <mutex>
 
-#include "quadric_slam/Object_landmark.h"   //quadric slam
+#include "quadric_slam/QuadricLandmark.h"   //quadric slam
 #include "quadric_slam/g2o_Object.h"
 
 namespace ORB_SLAM2

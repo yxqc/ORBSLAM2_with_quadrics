@@ -59,16 +59,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
 
 void KeyFrame::InitQuadricLandmark()
 {
-    for(auto det=mvpDetections.begin();det!=mvpDetections.end();det++)
-    {
-        //如果初始化失败，mnID会空一部分，以及内存？
-        QuadricLandmark quad=QuadricLandmark();
-        quad.QuadricInit((*det)->GetTrackings());
-        if(quad.mbIsInitialized==true)
-        {
-            mvpQuadricLandmarks.push_back(*quad);
-        }
-    }
+    //todo
 }
 
 void KeyFrame::ComputeBoW()

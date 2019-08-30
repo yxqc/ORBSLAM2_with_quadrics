@@ -1,4 +1,5 @@
-#pragma once
+#ifndef G2O_OBJECT_H
+#define G2O_OBJECT_H
 
 #include "Thirdparty/g2o/g2o/core/base_multi_edge.h"
 #include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
@@ -140,13 +141,11 @@ public:
     return v;
   }
 
-  // xyz quaternion, half_scale
-  inline Vector10d toVector() const
+  //return xyz quaternion, half_scale(three semi-axis abc)
+  /*inline Vector10d toVector() const
   {
-    Vector10d v;
-    // Todo
-    return v;
-  }
+    //seems no necessary to do
+  }*/
 
   Matrix4d toSymMat() const
   {
@@ -184,6 +183,7 @@ public:
     return conic.inverse();
   }
 
+  //return x_min y_min x_max y_max
   Vector4d projectOntoImageRect(const SE3Quat &campose_wc,
                                 const Matrix3d &Kalib) const
   {
@@ -226,6 +226,7 @@ public:
     return Vector4d(topleft(0), topleft(1), bottomright(0), bottomright(1));
   }
 
+  //return x y w h
   Vector4d projectOntoImageBbox(const SE3Quat &campose_wc,
                                 const Matrix3d &Kalib) const
   {
@@ -306,10 +307,12 @@ public:
     Quadric global_quadric = quadricVertex->estimate();
 
     Vector4d rect_project = global_quadric.projectOntoImageBbox(
-        cam_pose_Tcw, calib); // center, width, height
+        cam_pose_Tcw, calib); // Attention：center, width, height
 
-    _error = (rect_project - _measurement).array().pow(2); //为何这样设计？
+    _error = (rect_project - _measurement).array().pow(2);
   }
   Matrix3d calib;
 };
 } // namespace g2o
+
+#endif

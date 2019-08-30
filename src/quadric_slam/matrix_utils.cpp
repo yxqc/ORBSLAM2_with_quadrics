@@ -326,6 +326,8 @@ bool read_obj_detection_txt(const std::string txt_file_name,
   filetxt.close();
   read_number_mat.conservativeResize(
       row_counter, read_number_mat.cols()); // cut into actual rows
+
+  return true;
 }
 
 bool read_obj_detection2_txt(const std::string txt_file_name,
@@ -374,6 +376,8 @@ bool read_obj_detection2_txt(const std::string txt_file_name,
   filetxt.close();
   read_number_mat.conservativeResize(
       row_counter, read_number_mat.cols()); // cut into actual rows
+  
+  return true;
 }
 
 void sort_indexes(const Eigen::VectorXd &vec,

@@ -1,5 +1,5 @@
 ﻿#ifndef BUILD_QUADRIC_HPP
-#define  BUILD_QUADRIC_HPP
+#define BUILD_QUADRIC_HPP
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -22,7 +22,9 @@ using namespace std;
 #define Pi 3.1415926
 #define MAX_DETECTIONS 10
 
-struct CornerPoints {
+/*
+struct CornerPoints
+{
   double left_x, left_y, right_x, right_y;
   CornerPoints() {}
   CornerPoints(double l_x, double l_y, double r_x, double r_y)
@@ -30,20 +32,24 @@ struct CornerPoints {
 };
 
 void RecordDetectedObjects(string filename,
-                           multimap<int, CornerPoints>& objects_info) {
+                           multimap<int, CornerPoints> &objects_info)
+{
   ifstream file;
   file.open(filename.data());
-  if (!file.is_open()) {
+  if (!file.is_open())
+  {
     cout << "Unable to Open the Detection File" << endl;
     exit(1);
   }
   vector<string> vec;
   string temp;
-  while (getline(file, temp)) {
+  while (getline(file, temp))
+  {
     vec.push_back(temp);
   }
   cout << "the Raw Detection Date is" << endl;
-  for (vector<string>::iterator it = vec.begin(); it != vec.end(); it++) {
+  for (vector<string>::iterator it = vec.begin(); it != vec.end(); it++)
+  {
     cout << *it << endl;
     istringstream is(*it);
     string s0, s1, s2, s3, s4, s5, s6;
@@ -60,7 +66,8 @@ void RecordDetectedObjects(string filename,
   cout << "the Detected Objects Information is" << endl;
 
   for (multimap<int, CornerPoints>::iterator it = objects_info.begin();
-       it != objects_info.end(); it++) {
+       it != objects_info.end(); it++)
+  {
     cout << it->first << " " << it->second.left_x << " " << it->second.left_y
          << " " << it->second.right_x << " " << it->second.right_y << " "
          << objects_info.count(it->first) << endl;
@@ -68,7 +75,8 @@ void RecordDetectedObjects(string filename,
   cout << endl;
 }
 
-void DrawBoundingBox() {
+void DrawBoundingBox()
+{
   Mat img = imread("/home/csj/Documents/quadric/dataset/dish/1.png",
                    CV_LOAD_IMAGE_COLOR);
   rectangle(img, Point(263, 252), Point(341, 327), Scalar(0, 0, 255), 1, 1, 0);
@@ -84,11 +92,13 @@ void DrawBoundingBox() {
 void ComputePointMat(multimap<int, CornerPoints> objects_info,
                      int detected_id,
                      int detected_nums,
-                     std::vector<Point2d>& points) {
+                     std::vector<Point2d> &points)
+{
   int num = 0;
   multimap<int, CornerPoints>::iterator it = objects_info.find(detected_id);
   for (multimap<int, CornerPoints>::iterator p = it;
-       it != objects_info.end() && num < detected_nums; p++, num++) {
+       it != objects_info.end() && num < detected_nums; p++, num++)
+  {
     Point2d top_left(p->second.left_x, p->second.left_y);
     Point2d botton_right(p->second.right_x, p->second.right_y);
     // cout<<top_left<<" "<<botton_right<<endl;
@@ -96,33 +106,26 @@ void ComputePointMat(multimap<int, CornerPoints> objects_info,
     points.push_back(botton_right);
   }
 }
+*/
 
-// void
-// ComputeLineMat(std::vector<Point2d>points,std::vector<Eigen::Vector3d,Eigen::aligned_allocator<Eigen::Vector3d>
-// >& lines){
-//  for(int i=0;i<points.size();i+=2){
-//    lines.push_back(Eigen::Vector3d(1,0,-points[i].x));
-//    lines.push_back(Eigen::Vector3d(0,1,-points[i].y));
-//    lines.push_back(Eigen::Vector3d(1,0,-points[i+1].x));
-//    lines.push_back(Eigen::Vector3d(0,1,-points[i+1].y));
-//  }
-//}
-void ComputeLineMat(
-    std::vector<Eigen::Vector4d, Eigen::aligned_allocator<Eigen::Vector4d>>
-        bboxes,
-    std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>&
-        lines) {
-  for (int i = 0; i < (int)bboxes.size(); i++) {
-    lines.push_back(Eigen::Vector3d(1, 0, -(bboxes[i](0) - bboxes[i](2) / 2)));
-    lines.push_back(Eigen::Vector3d(0, 1, -(bboxes[i](1) - bboxes[i](3) / 2)));
-    lines.push_back(Eigen::Vector3d(1, 0, -(bboxes[i](0) + bboxes[i](2) / 2)));
-    lines.push_back(Eigen::Vector3d(0, 1, -(bboxes[i](1) + bboxes[i](3) / 2)));
+//line： [a b c]表示直线方程的系数
+void Box2Line(std::vector<Eigen::Vector4d, Eigen::aligned_allocator<Eigen::Vector4d>> &bboxes,
+              std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> &lines)
+{
+  for (int i = 0; i < (int)bboxes.size(); i++)
+  {
+    lines.push_back(Eigen::Vector3d(1, 0, -bboxes[i](0)));
+    lines.push_back(Eigen::Vector3d(0, 1, -bboxes[i](1)));
+    lines.push_back(Eigen::Vector3d(1, 0, -bboxes[i](2)));
+    lines.push_back(Eigen::Vector3d(0, 1, -bboxes[i](3)));
   }
 }
-Eigen::Matrix3d Quater2Rotation(const double& x,
-                                const double& y,
-                                const double& z,
-                                const double& w) {
+
+Eigen::Matrix3d Quater2Rotation(const double &x,
+                                const double &y,
+                                const double &z,
+                                const double &w)
+{
   Eigen::Quaterniond q;
   q.x() = x;
   q.y() = y;
@@ -133,20 +136,24 @@ Eigen::Matrix3d Quater2Rotation(const double& x,
   return R;
 }
 
+/*
 void ComputeProjectionMat(
     string filename,
     std::vector<Eigen::Matrix<double, 3, 4>,
-                Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>&
-        projection_matrix) {
+                Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>> &
+        projection_matrix)
+{
   ifstream file;
   file.open(filename.data());
-  if (!file.is_open()) {
+  if (!file.is_open())
+  {
     cout << "Unable to Open the Trajectories File" << endl;
     exit(1);
   }
   vector<string> vec;
   string temp;
-  while (getline(file, temp)) {
+  while (getline(file, temp))
+  {
     vec.push_back(temp);
   }
 
@@ -155,7 +162,8 @@ void ComputeProjectionMat(
 
   ofstream f_rotation("camera_rt35.txt");
   // ofstream f_rotation_mat("camera_test.txt");
-  for (vector<string>::iterator it = vec.begin(); it != vec.end(); it++) {
+  for (vector<string>::iterator it = vec.begin(); it != vec.end(); it++)
+  {
     istringstream is(*it);
     string s0, s1, s2, s3, s4, s5, s6;
     is >> s0 >> s1 >> s2 >> s3 >> s4 >> s5 >> s6;
@@ -187,7 +195,7 @@ void ComputeProjectionMat(
     rt.block(0, 0, 3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
     rt.block(0, 0, 3, 3) = rotation.inverse();
-    rt.block(0, 3, 3, 1) = rotation.inverse() * translation;  //?
+    rt.block(0, 3, 3, 1) = rotation.inverse() * translation; //?
 
     projection = k * rt;
 
@@ -199,32 +207,36 @@ void ComputeProjectionMat(
   //         << endl;
   //  }
 }
+*/
 
+//project line mats to plane mats 4*1 
 void ComputePlanesMat(
-    const Eigen::Matrix<double, 3, 3>& calib,
     const vector<Eigen::Matrix<double, 3, 4>,
-                 Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>&
+                 Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>> &
         projection_matrix,
-    const vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>&
+    const vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> &
         lines,
-    std::vector<Eigen::Vector4d, Eigen::aligned_allocator<Eigen::Vector4d>>&
-        planes) {
-  for (int i = 0; i < (int)lines.size(); i++) {
-    //    cout << lines[i] << endl;
-    //    cout << calib * projection_matrix[i / 4] << endl;
-    planes.push_back((calib * projection_matrix[i / 4]).transpose() * lines[i]);
+    std::vector<Eigen::Vector4d, Eigen::aligned_allocator<Eigen::Vector4d>> &
+        planes)
+{
+  for (std::size_t i = 0; i < lines.size(); i++)
+  {
+    planes.push_back(projection_matrix[i / 4].transpose() * lines[i]);
   }
 }
 
+//用pi_1 pi_2 pi_3 pi_4交叉计算出10个系数
 void ComputePlanesParameters(
-    vector<Eigen::Vector4d, Eigen::aligned_allocator<Eigen::Vector4d>>& planes,
+    vector<Eigen::Vector4d, Eigen::aligned_allocator<Eigen::Vector4d>> &planes,
     std::vector<Eigen::Matrix<double, 1, 10>,
-                Eigen::aligned_allocator<Eigen::Matrix<double, 1, 10>>>&
-        planes_parameter) {
+                Eigen::aligned_allocator<Eigen::Matrix<double, 1, 10>>> &
+        planes_parameter)
+{
   for (vector<Eigen::Vector4d,
               Eigen::aligned_allocator<Eigen::Vector4d>>::iterator it =
            planes.begin();
-       it != planes.end(); it++) {
+       it != planes.end(); it++)
+  {
     Eigen::Matrix<double, 1, 10> parm;
 
     parm << pow((*it)(0, 0), 2), 2 * (*it)(0, 0) * (*it)(1, 0),
@@ -239,18 +251,20 @@ void ComputePlanesParameters(
 
 void ComputeDualQuadric(
     const vector<Eigen::Matrix<double, 1, 10>,
-                 Eigen::aligned_allocator<Eigen::Matrix<double, 1, 10>>>&
+                 Eigen::aligned_allocator<Eigen::Matrix<double, 1, 10>>> &
         planes_parameter,
-    Eigen::Matrix3d& rotation,
-    Eigen::Vector3d& shape,
-    Eigen::Vector3d& translation,
-    Eigen::Matrix4d& constrained_quadric) {
+    Eigen::Matrix3d &rotation,
+    Eigen::Vector3d &shape,
+    Eigen::Vector3d &translation,
+    Eigen::Matrix4d &constrained_quadric)
+{
   //  ofstream ofile("quadric_parameters.txt", ios::app);
 
   int rows = planes_parameter.size();
   cout << "rows=" << rows << endl;
   Eigen::MatrixXd planes_svd(rows, 10);
-  for (int i = 0; i < rows; i++) {
+  for (int i = 0; i < rows; i++)
+  {
     planes_svd.row(i) = Eigen::VectorXd::Map(&planes_parameter[i][0],
                                              planes_parameter[i].size());
   }
@@ -268,6 +282,7 @@ void ComputeDualQuadric(
       dual_quadric_parm(0, 8), dual_quadric_parm(0, 3), dual_quadric_parm(0, 6),
       dual_quadric_parm(0, 8), dual_quadric_parm(0, 9);
 
+  //由伴随矩阵转换回原矩阵
   raw_quadric = dual_quadric.inverse() * cbrt(dual_quadric.determinant());
   //  cout << "The Primary Form of Quadric is " << endl
   //       << raw_quadric << endl
@@ -282,7 +297,7 @@ void ComputeDualQuadric(
   cout << "The Rotation Matrix of the Constrained Quadric is " << endl
        << eigen_vectors << endl
        << endl;
-
+  //旋转角参数等于Q33的特征向量
   rotation = eigen_vectors;
 
   Eigen::Vector3d eigen_values;
@@ -328,20 +343,23 @@ void ComputeDualQuadric(
 }
 
 void ComputeConicsMat(
-    const Eigen::Matrix4d& constrained_quadric,
+    const Eigen::Matrix4d &constrained_quadric,
     const vector<Eigen::Matrix<double, 3, 4>,
-                 Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>&
+                 Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>> &
         projection_matrix,
-    std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>>&
-        conics_matrix) {
+    std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> &
+        conics_matrix)
+{
   Eigen::Matrix3d dual_conic;
-  for (int i = 0; i < (int)projection_matrix.size(); i++) {
+  for (size_t i = 0; i < projection_matrix.size(); i++)
+  {
     dual_conic = projection_matrix[i] * constrained_quadric *
                  projection_matrix[i].transpose();
     conics_matrix.push_back(dual_conic.inverse() *
-                            cbrt(dual_conic.determinant()));
+                            cbrt(dual_conic.determinant()));  //push back primal form
   }
-  for (int i = 0; i < (int)projection_matrix.size(); i++) {
+  for (size_t i = 0; i < projection_matrix.size(); i++)
+  {
     cout << "The conic of frame " << i << " is " << endl
          << conics_matrix[i] << endl
          << endl;
