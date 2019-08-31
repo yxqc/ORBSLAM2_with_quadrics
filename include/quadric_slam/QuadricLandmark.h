@@ -1,8 +1,14 @@
 #ifndef QUADRICLANDMARK_H
 #define QUADRICLANDMARK_H
 
+/*
+#include <Eigen/Core>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+#include <Eigen/SVD>
+#include <Eigen/StdVector>*/
+//#include <quadric_slam/build_quadric.hpp>
 #include <quadric_slam/g2o_Object.h>
-#include <quadric_slam/build_quadric.hpp>
 #include <vector>
 
 #include"KeyFrame.h"
@@ -93,7 +99,7 @@ public:
 
     bool IsInKeyFrame(KeyFrame* pKF);
     int GetIndexInKeyframe(KeyFrame* pKF);
-    bool IsInBox(KeyPoint* pKP);    //check whether keypoint is located in bbox
+    bool IsInBox(cv::KeyPoint* pKP);    //check whether keypoint is located in bbox
 
     std::set<MapPoint*> GetAssociatedMP();
     void AddAssociatedMP(MapPoint* pMP);
