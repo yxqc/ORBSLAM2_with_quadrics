@@ -25,11 +25,10 @@
 #include "MapPoint.h"
 #include "Map.h"
 
-#include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/features2d/features2d.hpp>
 
-#include<mutex>
-
+#include <mutex>
 
 namespace ORB_SLAM2
 {
@@ -40,7 +39,7 @@ class Viewer;
 class FrameDrawer
 {
 public:
-    FrameDrawer(Map* pMap);
+    FrameDrawer(Map *pMap);
 
     // Update info from the last processed frame.
     void Update(Tracking *pTracker);
@@ -49,6 +48,15 @@ public:
     cv::Mat DrawFrame();
 
 protected:
+    //added by yxqc for draw the detecting results
+    std::vector<cv::Rect> bbox_2d_tight;
+    std::vector<cv::Rect> associate_bbox;
+    std::vector<int> associate_id;
+    std::vector<cv::Scalar> box_color;
+    std::vector<double> prop;
+    std::vector<int> local_id;
+    std::vector<int> point_Object_AssoID;
+    int frame_id;
 
     void DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText);
 
@@ -63,11 +71,11 @@ protected:
     vector<int> mvIniMatches;
     int mState;
 
-    Map* mpMap;
+    Map *mpMap;
 
     std::mutex mMutex;
 };
 
-} //namespace ORB_SLAM
+} // namespace ORB_SLAM2
 
 #endif // FRAMEDRAWER_H

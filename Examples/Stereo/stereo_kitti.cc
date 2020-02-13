@@ -24,7 +24,7 @@
 #include<fstream>
 #include<iomanip>
 #include<chrono>
-
+#include<unistd.h>
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
@@ -36,9 +36,9 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
 
 int main(int argc, char **argv)
 {
-    if(argc != 4)
+    if(argc != 5)
     {
-        cerr << endl << "Usage: ./stereo_kitti path_to_vocabulary path_to_settings path_to_sequence" << endl;
+        cerr << endl << "Usage: ./stereo_kitti path_to_vocabulary path_to_settings path_to_sequence OnlineMode(0 or 1,if Online set 1)" << endl;
         return 1;
     }
 
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
     const int nImages = vstrImageLeft.size();
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::STEREO,true);
+    ORB_SLAM2::System SLAM(argv[1],argv[2],nImages,ORB_SLAM2::System::STEREO,atoi(argv[4]),true);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
@@ -63,8 +63,61 @@ int main(int argc, char **argv)
 
     // Main loop
     cv::Mat imLeft, imRight;
+    if(atoi(argv[4]))
+   {
+
     for(int ni=0; ni<nImages; ni++)
     {
+        imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
+        imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
+        if(imLeft.empty())
+        {
+            cerr << endl << "Failed to load image at: "
+                 << string(vstrImageLeft[ni]) << endl;
+            return 1;
+        }
+    }   
+    for(int ni=0; ni<nImages; ni++)
+    {
+
+        double tframe = vTimestamps[ni];
+#ifdef COMPILEDWITHC11
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+#else
+        std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
+#endif
+
+        // Pass the images to the SLAM system
+        SLAM.TrackStereo(tframe);
+
+#ifdef COMPILEDWITHC11
+        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+#else
+        std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
+#endif
+
+        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+
+        vTimesTrack[ni]=ttrack;
+
+        // Wait to load the next frame
+        double T=0;
+        if(ni<nImages-1)
+            T = vTimestamps[ni+1]-tframe;
+        else if(ni>0)
+            T = tframe-vTimestamps[ni-1];
+
+        if(ttrack<T)
+            usleep((T-ttrack)*1e6);
+    }
+
+  }
+ else
+   {    
+  
+    for(int ni=0; ni<nImages; ni++)
+    {
+
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
         imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
@@ -105,7 +158,8 @@ int main(int argc, char **argv)
 
         if(ttrack<T)
             usleep((T-ttrack)*1e6);
-    }
+    }  
+  }
 
     // Stop all threads
     SLAM.Shutdown();
@@ -147,8 +201,8 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
         }
     }
 
-    string strPrefixLeft = strPathToSequence + "/image_0/";
-    string strPrefixRight = strPathToSequence + "/image_1/";
+    string strPrefixLeft = strPathToSequence + "/image_2/";//added by yxqc not 0 1 
+    string strPrefixRight = strPathToSequence + "/image_3/";
 
     const int nTimes = vTimestamps.size();
     vstrImageLeft.resize(nTimes);

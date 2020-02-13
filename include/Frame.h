@@ -21,15 +21,17 @@
 #ifndef FRAME_H
 #define FRAME_H
 
-#include<vector>
+#include <vector>
 
+#include <eigen3/Eigen/Dense> 
+#include <eigen3/Eigen/StdVector>
 #include "MapPoint.h"
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
 #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 #include "ORBVocabulary.h"
 #include "KeyFrame.h"
 #include "ORBextractor.h"
-
+#include "Map.h"
 #include "quadric_slam/QuadricLandmark.h"   //quadric slam
 
 #include <opencv2/opencv.hpp>
@@ -38,11 +40,12 @@ namespace ORB_SLAM2
 {
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
+typedef Eigen::Matrix<double,6,1> Vector6d; //added by yxqc
 
 class MapPoint;
 class KeyFrame;
-class Detection;
-
+class QuadricLandmark;
+class Map;
 class Frame
 {
 public:
@@ -50,15 +53,24 @@ public:
 
     // Copy constructor.
     Frame(const Frame &frame);
+    Frame(const cv::Mat &img); //added by yxqc for Detecting frame parameter
+    Frame(const cv::Mat &imLeft, const cv::Mat &imRight);//added by yxqc for Detecting frame parameter
 
-    // Constructor for stereo cameras.
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+   //Constructor for Stereo cameras.
+    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,Map* mpMap);
 
     // Constructor for RGB-D cameras.
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Constructor for Monocular cameras.
-    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+    Frame(const cv::Mat &imGray, const double &timeStamp,ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,Map* mpMap);
+
+    // Constructor for stereo cameras Add the DetectingBox for OnlineMode
+    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, std::vector<Vector6d,Eigen::aligned_allocator<Vector6d>> DetectingBox,ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,Map* mpMap);
+
+
+    // Constructor for Monocular cameras Add the DetectingBox for OnlineMode
+    Frame(const cv::Mat &imGray, const double &timeStamp,std::vector<Vector6d,Eigen::aligned_allocator<Vector6d>> DetectingBox,ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth,Map* mpMap);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
@@ -101,6 +113,8 @@ public:
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
     cv::Mat UnprojectStereo(const int &i);
 
+
+    void ReadOfflineBox(Map* pMap);
 public:
     // Vocabulary used for relocalization.
     ORBVocabulary* mpORBvocabulary;
@@ -110,7 +124,23 @@ public:
 
     // Frame timestamp.
     double mTimeStamp;
+      
 
+
+    //added by yxqc
+    cv::Mat mLeftImg,mRightImg;//for Detecting constructor
+    //Detecting Nums already filtered
+    int mDetectNums;
+    //KeyPoints Associate LocalObject
+    std::vector<int> keypoint_associate_objectID;
+    //LocalObjects with Bbox in this frame
+    std::vector<QuadricLandmark*>mvpLocalObjects;
+    std::vector<QuadricLandmark*>mvpQuadricLandmarks;
+    
+    //Bbox Set
+    std::vector<Vector6d,Eigen::aligned_allocator<Vector6d>>mDetectingBoxes;
+
+   
     // Calibration matrix and OpenCV distortion parameters.
     cv::Mat mK;
     static float fx;
@@ -147,8 +177,10 @@ public:
     std::vector<float> mvuRight;    //float means sub_pixel
     std::vector<float> mvDepth;
 
+
+    // annotated by sjChen replaced by Class LocalObject 
     //object detection results (added by song)
-    std::vector<Detection*> mvpDetections;
+    ///std::vector<Detection*> mvpDetections; 
 
     // Bag of Words Vector structures.
     DBoW2::BowVector mBowVec;
@@ -171,6 +203,7 @@ public:
     // Camera pose.
     cv::Mat mTcw;
 
+    cv::Mat mTwc;//camera to world  add
     // Current and Next Frame id.
     static long unsigned int nNextId;
     long unsigned int mnId;

@@ -21,12 +21,16 @@
 #ifndef MAPPOINT_H
 #define MAPPOINT_H
 
-#include"KeyFrame.h"
-#include"Frame.h"
-#include"Map.h"
+#include "KeyFrame.h"
+#include "Frame.h"
+#include "Map.h"
 
-#include<opencv2/core/core.hpp>
-#include<mutex>
+#include <opencv2/core/core.hpp>
+#include <set>
+#include <map>
+#include "Eigen/Dense"
+#include <mutex>
+#include <quadric_slam/QuadricLandmark.h>
 
 namespace ORB_SLAM2
 {
@@ -34,39 +38,43 @@ namespace ORB_SLAM2
 class KeyFrame;
 class Map;
 class Frame;
-
+class QuadricLandmark;
 
 class MapPoint
 {
 public:
-    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
-    MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
+    MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map *pMap);
+    MapPoint(const cv::Mat &Pos, Map *pMap, Frame *pFrame, const int &idxF);
 
     void SetWorldPos(const cv::Mat &Pos);
+
+    Eigen::Vector3f GetWorldPosVec(); //add
+    cv::Mat GetWorldPosBA();
     cv::Mat GetWorldPos();
 
     cv::Mat GetNormal();
-    KeyFrame* GetReferenceKeyFrame();
+    KeyFrame *GetReferenceKeyFrame();
 
-    std::map<KeyFrame*,size_t> GetObservations();
+    std::map<KeyFrame *, size_t> GetObservations();
     int Observations();
 
-    void AddObservation(KeyFrame* pKF,size_t idx);
-    void EraseObservation(KeyFrame* pKF);
+    void AddObservation(KeyFrame *pKF, size_t idx);
+    void EraseObservation(KeyFrame *pKF);
 
-    int GetIndexInKeyFrame(KeyFrame* pKF);
-    bool IsInKeyFrame(KeyFrame* pKF);
+    int GetIndexInKeyFrame(KeyFrame *pKF);
+    bool IsInKeyFrame(KeyFrame *pKF);
 
     void SetBadFlag();
     bool isBad();
 
-    void Replace(MapPoint* pMP);    
-    MapPoint* GetReplaced();
+    void Replace(MapPoint *pMP);
+    MapPoint *GetReplaced();
 
-    void IncreaseVisible(int n=1);
-    void IncreaseFound(int n=1);
+    void IncreaseVisible(int n = 1);
+    void IncreaseFound(int n = 1);
     float GetFoundRatio();
-    inline int GetFound(){
+    inline int GetFound()
+    {
         return mnFound;
     }
 
@@ -78,8 +86,16 @@ public:
 
     float GetMinDistanceInvariance();
     float GetMaxDistanceInvariance();
-    int PredictScale(const float &currentDist, KeyFrame*pKF);
-    int PredictScale(const float &currentDist, Frame* pF);
+    int PredictScale(const float &currentDist, KeyFrame *pKF);
+    int PredictScale(const float &currentDist, Frame *pF);
+
+    // For association with object
+    void AddObjectObservation(QuadricLandmark *obj); //called by AddObservation
+    void EraseObjectObservation(QuadricLandmark *obj);
+    void FindBestObject(); //find which object observes this point most
+
+    int GetBelongedObject(QuadricLandmark *&obj); // change obj, return observation times.
+    QuadricLandmark *GetBelongedObject();         //return obj
 
 public:
     long unsigned int mnId;
@@ -105,48 +121,66 @@ public:
     // Variables used by loop closing
     long unsigned int mnLoopPointForKF;
     long unsigned int mnCorrectedByKF;
-    long unsigned int mnCorrectedReference;    
+    long unsigned int mnCorrectedReference;
     cv::Mat mPosGBA;
     long unsigned int mnBAGlobalForKF;
-
-
     static std::mutex mGlobalMutex;
 
-protected:    
+    bool is_dynamic = false;
+    cv::Mat mWorldPos_latestKF;
+    cv::Mat mWorldPos_latestFrame;
+    cv::Mat PosToObj; // 3d point relative to object center. ideally will converge/fix after BA
 
-     // Position in absolute coordinates
-     cv::Mat mWorldPos;
+    bool is_triangulated = false; //whether this point is triangulated or depth inited?
+    bool is_optimized = false;
 
-     // Keyframes observing the point and associated index in keyframe
-     std::map<KeyFrame*,size_t> mObservations;
+    QuadricLandmark *best_object;                        // one point can only belong to at most one object
+    int max_object_vote;                                 // sometimes point is wrongly associated to an object. need more frame observation
+    std::set<QuadricLandmark *> LocalObjObservations;    // observed by local objects which hasn't become landmark at that time
+    std::map<QuadricLandmark *, int> MapObjObservations; //object and observe times.
+    std::mutex mMutexObject;
 
-     // Mean viewing direction
-     cv::Mat mNormalVector;
+    bool already_bundled;
 
-     // Best descriptor to fast matching
-     cv::Mat mDescriptor;
+    bool ground_fitted_point = false;
+    long unsigned int mnGroundFittingForKF;
 
-     // Reference KeyFrame
-     KeyFrame* mpRefKF;
+    int record_txtrow_id = -1; // when finally record to txt, row id in txt
 
-     // Tracking counters
-     int mnVisible;
-     int mnFound;
+protected:
+    // Position in absolute coordinates
+    cv::Mat mWorldPos;
 
-     // Bad flag (we do not currently erase MapPoint from memory)
-     bool mbBad;
-     MapPoint* mpReplaced;
+    // Keyframes observing the point and associated index in keyframe
+    std::map<KeyFrame *, size_t> mObservations;
 
-     // Scale invariance distances
-     float mfMinDistance;
-     float mfMaxDistance;
+    // Mean viewing direction
+    cv::Mat mNormalVector;
 
-     Map* mpMap;
+    // Best descriptor to fast matching
+    cv::Mat mDescriptor;
 
-     std::mutex mMutexPos;
-     std::mutex mMutexFeatures;
+    // Reference KeyFrame
+    KeyFrame *mpRefKF;
+
+    // Tracking counters
+    int mnVisible;
+    int mnFound;
+
+    // Bad flag (we do not currently erase MapPoint from memory)
+    bool mbBad;
+    MapPoint *mpReplaced;
+
+    // Scale invariance distances
+    float mfMinDistance;
+    float mfMaxDistance;
+
+    Map *mpMap;
+
+    std::mutex mMutexPos;
+    std::mutex mMutexFeatures;
 };
 
-} //namespace ORB_SLAM
+} // namespace ORB_SLAM2
 
 #endif // MAPPOINT_H

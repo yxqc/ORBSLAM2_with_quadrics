@@ -25,7 +25,7 @@
 #include<string>
 #include<thread>
 #include<opencv2/core/core.hpp>
-
+#include "quadric_slam/Detecting.h"
 #include "Tracking.h"
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
@@ -42,6 +42,7 @@ namespace ORB_SLAM2
 class Viewer;
 class FrameDrawer;
 class Map;
+class Detecting;
 class Tracking;
 class LocalMapping;
 class LoopClosing;
@@ -55,17 +56,20 @@ public:
         STEREO=1,
         RGBD=2
     };
-
 public:
 
     // Initialize the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
-    System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const bool bUseViewer = true);
-
+    System(const string &strVocFile, const string &strSettingsFile,const int &nImages,const eSensor sensor, const int& OnlineMode,const bool bUseViewer = true);
+    //added by yxqc System add images    
+    void DetectMonocular(const cv::Mat &im);//added by yxqc for  Detecting
+    
+    void DetectStereo(const cv::Mat &imLeft, const cv::Mat &imRight);
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
     cv::Mat TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp);
 
+    cv::Mat TrackStereo(const double &timestamp);
     // Process the given rgbd frame. Depthmap must be registered to the RGB frame.
     // Input image: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Input depthmap: Float (CV_32F).
@@ -76,6 +80,8 @@ public:
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
     cv::Mat TrackMonocular(const cv::Mat &im, const double &timestamp);
+    cv::Mat TrackMonocular(const double& timestamp);
+
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();
@@ -135,7 +141,11 @@ private:
 
     // Map structure that stores the pointers to all KeyFrames and MapPoints.
     Map* mpMap;
+ 
 
+   //added by yxqc Detector. It Detects Bbox from Yolov3 
+    Detecting* mpDetector;
+  
     // Tracker. It receives a frame and computes the associated camera pose.
     // It also decides when to insert a new keyframe, create some new MapPoints and
     // performs relocalization if tracking fails.
@@ -159,11 +169,12 @@ private:
     std::thread* mptLocalMapping;
     std::thread* mptLoopClosing;
     std::thread* mptViewer;
+    std::thread* mptDetecting;
 
     // Reset flag
     std::mutex mMutexReset;
     bool mbReset;
-
+    int mbDetectMode;//0 is Offline 1 is Online
     // Change mode flags
     std::mutex mMutexMode;
     bool mbActivateLocalizationMode;

@@ -15,7 +15,13 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 
-cd ../../../
+echo "Configuring and building Thirdparty/Darknet ..."
+
+cd ../../Darknet
+make -j
+
+
+cd ../../
 
 echo "Uncompress vocabulary ..."
 
@@ -24,6 +30,7 @@ tar -xf ORBvoc.txt.tar.gz
 cd ..
 
 echo "Configuring and building ORB_SLAM2 ..."
+
 
 mkdir build
 cd build
