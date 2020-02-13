@@ -20,57 +20,60 @@
 
 #ifndef MAP_H
 #define MAP_H
-
+#include "quadric_slam/QuadricLandmark.h"
 #include "MapPoint.h"
 #include "KeyFrame.h"
 #include <set>
 
 #include <mutex>
 
-
-
 namespace ORB_SLAM2
 {
 
 class MapPoint;
 class KeyFrame;
-
+class QuadricLandmark;
 class Map
 {
 public:
     Map();
 
-    void AddKeyFrame(KeyFrame* pKF);
-    void AddMapPoint(MapPoint* pMP);
-    void EraseMapPoint(MapPoint* pMP);
-    void EraseKeyFrame(KeyFrame* pKF);
-    void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
+    void AddKeyFrame(KeyFrame *pKF);
+    void AddMapPoint(MapPoint *pMP);
+    void EraseMapPoint(MapPoint *pMP);
+    void AddQuadricLandmark(QuadricLandmark *pMO);
+    void EraseQuadricLandmark(QuadricLandmark *pMO);
+    void EraseKeyFrame(KeyFrame *pKF);
+    void SetReferenceMapPoints(const std::vector<MapPoint *> &vpMPs);
     void InformNewBigChange();
     int GetLastBigChangeIdx();
 
-    std::vector<KeyFrame*> GetAllKeyFrames();
-    std::vector<MapPoint*> GetAllMapPoints();
-    std::vector<MapPoint*> GetReferenceMapPoints();
+    std::vector<QuadricLandmark *> GetAllQuadricLandmarks();
+    std::vector<KeyFrame *> GetAllKeyFrames();
+    std::vector<MapPoint *> GetAllMapPoints();
+    std::vector<MapPoint *> GetReferenceMapPoints();
 
     long unsigned int MapPointsInMap();
-    long unsigned  KeyFramesInMap();
+    long unsigned KeyFramesInMap();
 
     long unsigned int GetMaxKFid();
 
     void clear();
 
-    vector<KeyFrame*> mvpKeyFrameOrigins;
+    vector<KeyFrame *> mvpKeyFrameOrigins;
 
     std::mutex mMutexMapUpdate;
 
     // This avoid that two points are created simultaneously in separate threads (id conflict)
     std::mutex mMutexPointCreation;
 
-protected:
-    std::set<MapPoint*> mspMapPoints;
-    std::set<KeyFrame*> mspKeyFrames;
+    int img_height, img_width;
 
-    std::vector<MapPoint*> mvpReferenceMapPoints;
+protected:
+    std::set<MapPoint *> mspMapPoints;
+    std::set<KeyFrame *> mspKeyFrames;
+    std::set<QuadricLandmark *> mspQuadricLandmarks; /////addded by sjChen
+    std::vector<MapPoint *> mvpReferenceMapPoints;
 
     long unsigned int mnMaxKFid;
 
@@ -80,6 +83,6 @@ protected:
     std::mutex mMutexMap;
 };
 
-} //namespace ORB_SLAM
+} // namespace ORB_SLAM2
 
 #endif // MAP_H

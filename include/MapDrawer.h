@@ -21,23 +21,23 @@
 #ifndef MAPDRAWER_H
 #define MAPDRAWER_H
 
-#include"Map.h"
-#include"MapPoint.h"
-#include"KeyFrame.h"
-#include<pangolin/pangolin.h>
-
-#include<mutex>
-
+#include "Map.h"
+#include "MapPoint.h"
+#include "KeyFrame.h"
+#include <pangolin/pangolin.h>
+#include "quadric_slam/QuadricLandmark.h"
+#include <mutex>
 namespace ORB_SLAM2
 {
 
 class MapDrawer
 {
 public:
-    MapDrawer(Map* pMap, const string &strSettingPath);
+    MapDrawer(Map *pMap, const string &strSettingPath);
 
-    Map* mpMap;
-
+    void DrawEllipsoid(unsigned int uiStacks, unsigned int uiSlices, float fA, float fB, float fC);
+    Map *mpMap;
+    void DrawMapQuadrics();
     void DrawMapPoints();
     void DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph);
     void DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
@@ -47,7 +47,6 @@ public:
     //todo: draw quadrics
     //todo: draw boundingboxs
 private:
-
     float mKeyFrameSize;
     float mKeyFrameLineWidth;
     float mGraphLineWidth;
@@ -60,6 +59,6 @@ private:
     std::mutex mMutexCamera;
 };
 
-} //namespace ORB_SLAM
+} // namespace ORB_SLAM2
 
 #endif // MAPDRAWER_H

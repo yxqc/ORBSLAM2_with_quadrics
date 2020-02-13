@@ -23,7 +23,7 @@
 #include<algorithm>
 #include<fstream>
 #include<chrono>
-
+#include<unistd.h>
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
@@ -35,9 +35,9 @@ void LoadImages(const string &strImagePath, const string &strPathTimes,
 
 int main(int argc, char **argv)
 {
-    if(argc != 5)
+    if(argc != 6)
     {
-        cerr << endl << "Usage: ./mono_tum path_to_vocabulary path_to_settings path_to_image_folder path_to_times_file" << endl;
+        cerr << endl << "Usage: ./mono_tum path_to_vocabulary path_to_settings path_to_image_folder path_to_times_file DetectMode(0 or 1,if Online set 1)" << endl;
         return 1;
     }
 
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true);
+    ORB_SLAM2::System SLAM(argv[1],argv[2],nImages,ORB_SLAM2::System::MONOCULAR,atoi(argv[5]),true);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
@@ -65,13 +65,15 @@ int main(int argc, char **argv)
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
-    // Main loop
     cv::Mat im;
+
+   if(atoi(argv[5]))
+   {
+    
     for(int ni=0; ni<nImages; ni++)
     {
-        // Read image from file
+
         im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
-        double tframe = vTimestamps[ni];
 
         if(im.empty())
         {
@@ -80,6 +82,59 @@ int main(int argc, char **argv)
             return 1;
         }
 
+        SLAM.DetectMonocular(im);
+ 
+    }
+   for(int ni=0; ni<nImages; ni++)
+    {
+        double tframe = vTimestamps[ni];
+
+#ifdef COMPILEDWITHC11
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+#else
+        std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
+#endif
+
+        // Pass the image to the SLAM system
+        SLAM.TrackMonocular(tframe);
+
+#ifdef COMPILEDWITHC11
+        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+#else
+        std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
+#endif
+
+        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+
+        vTimesTrack[ni]=ttrack;
+
+        // Wait to load the next frame
+        double T=0;
+        if(ni<nImages-1)
+            T = vTimestamps[ni+1]-tframe;
+        else if(ni>0)
+            T = tframe-vTimestamps[ni-1];
+
+        if(ttrack<T)
+            usleep((T-ttrack)*1e6);
+    }
+   }
+
+ else
+   {
+    // Main loop
+    for(int ni=0; ni<nImages; ni++)
+    {
+        im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
+
+        if(im.empty())
+        {
+            cerr << endl << "Failed to load image at: "
+                 <<  vstrImageFilenames[ni] << endl;
+            return 1;
+        }
+
+        double tframe = vTimestamps[ni];
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 #else
@@ -109,7 +164,8 @@ int main(int argc, char **argv)
         if(ttrack<T)
             usleep((T-ttrack)*1e6);
     }
-
+ }
+ 
     // Stop all threads
     SLAM.Shutdown();
 
