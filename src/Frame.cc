@@ -79,7 +79,7 @@ Frame::Frame(const cv::Mat &img)
 void Frame::ReadOfflineBox(Map *pMap)
 {
     Eigen::MatrixXd DetectBox(10, 6);
-    std::string saved_dir = "../SaveDetectBox/KITTI/seq00/"; //must add /
+    std::string saved_dir = "../SaveDetectBox/kitti_raw/seq09/"; //must add /
     char sequence_frame_index[256];
     sprintf(sequence_frame_index, "%04d", mnId);
     std::string onlinebox_txt = saved_dir + sequence_frame_index + "_yolo3.txt";
@@ -91,8 +91,8 @@ void Frame::ReadOfflineBox(Map *pMap)
         mDetectingBoxes[i] << DetectBox(i, 0), DetectBox(i, 1), DetectBox(i, 2), DetectBox(i, 3), DetectBox(i, 4), DetectBox(i, 5);
         local_object->bbox_2d = cv::Rect(DetectBox(i, 0), DetectBox(i, 1), DetectBox(i, 2), DetectBox(i, 3));
         local_object->bbox_2d_tight=cv::Rect(DetectBox(i, 0)+DetectBox(i,2)/10, DetectBox(i, 1)+DetectBox(i,3)/10, DetectBox(i, 2)*0.8, DetectBox(i, 3)*0.8);
-        local_object->bbox_vec = Eigen::Vector4d((double)local_object->bbox_2d_tight.x + (double)local_object->bbox_2d_tight.width / 2, (double)local_object->bbox_2d_tight.y + (double)local_object->bbox_2d_tight.height / 2,
-                                                 (double)local_object->bbox_2d_tight.width, (double)local_object->bbox_2d_tight.height);
+        //local_object->bbox_vec = Eigen::Vector4d((double)local_object->bbox_2d_tight.x + (double)local_object->bbox_2d_tight.width / 2, (double)local_object->bbox_2d_tight.y + (double)local_object->bbox_2d_tight.height / 2,
+        local_object->class_id = DetectBox(i,4);
         local_object->mnLocalId = i;
         local_object->prop = DetectBox(i, 5);
         this->mvpLocalObjects.push_back(local_object);
@@ -182,7 +182,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
         local_object->mnLocalId = i;
         local_object->class_id = mDetectingBoxes[i][4];
         local_object->prop = mDetectingBoxes[i][5];
-        mvpLocalObjects.push_back(local_object);
+        this->mvpLocalObjects.push_back(local_object);
         //cout<<"Local Object ID = "<<local_object->mnLocalId<<" Bbox(cv::Rect)= "<<local_object->bbox_2d<<endl;
     }
     // Scale Level Info
@@ -368,7 +368,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, std::vector<Vector6
         local_object->mnLocalId = i;
         local_object->class_id = mDetectingBoxes[i][4];
         local_object->prop = mDetectingBoxes[i][5];
-        mvpLocalObjects.push_back(local_object);
+        this->mvpLocalObjects.push_back(local_object);
     }
 
     // Scale Level Info

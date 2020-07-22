@@ -81,10 +81,11 @@ public:
 
     Frame *GrabDetectResults();            //added by yxqc pass the detecting results to tracking
     void PointAssociateObject(Frame *pKF); //added by yxqc points associate with  local object
-    ofstream CamPose;
-    void SavePoseTwc(KeyFrame *mpKF);
-    void SaveMapPoints(QuadricLandmark *mPO);
+    void SaveTwc_Projection(KeyFrame *mpKF);
+    //void SavePoseTwc(KeyFrame *mpKF);
+    //void SaveMapPoints(QuadricLandmark *mPO);
     void SaveOnlineDetectBox(Frame *mCurrent);
+    ofstream all_kf_Twc_file,all_kf_quat_file;
 
 public:
     // Tracking states

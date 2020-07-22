@@ -1,13 +1,21 @@
 //TODO if necessary
-#include "QuadricLandmark.h"
+#include "quadric_slam/QuadricLandmark.h"
+#include "quadric_slam/Convhull_3d.h"
+#include "quadric_slam/Dbscan.h"
 #include "Converter.h"
 #include <fstream>
 #include <Eigen/Dense>
 #include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
+#define INIT_IOU_THRESHOLD 0.5
+#define MINIMIUM_POINTS 10
+#define EPSILON (0.1*0.1)
+#define CONVHULL_3D_ENABLE
 
-#define QUALITY_THRESHOLD 0.5
+extern "C"{
+  #include "quadric_slam/Convhull_3d.h"
+}
 
 namespace ORB_SLAM2
 {
@@ -27,7 +35,7 @@ long unsigned int QuadricLandmark::nNextId = 0;
 
 
 //todo: construct
-QuadricLandmark::QuadricLandmark(Map *pMap, bool whether_update_index) : mbBad(false), mpMap(pMap)
+QuadricLandmark::QuadricLandmark(Map* pMap,bool whether_update_index) : mbBad(false), mpMap(pMap)
 {
     if (whether_update_index)
         mnId = nNextId++;
@@ -40,6 +48,7 @@ QuadricLandmark::QuadricLandmark(Map *pMap, bool whether_update_index) : mbBad(f
     mbIsCandidate = false;
     mbIsOptimized = false;
     mbIsAssociated = false;
+    mbIsInitializedOneObs = false;
 
     moRefKF = nullptr;
     mLastKF = nullptr;
@@ -54,7 +63,10 @@ QuadricLandmark::QuadricLandmark(Map *pMap, bool whether_update_index) : mbBad(f
 
     left_right_to_car = -1;
     isGood = false;
-    //mBox = pDet->toBbox();
+}
+QuadricLandmark::~QuadricLandmark()
+{
+
 }
 
 float QuadricLandmark::bboxOverlapratio(const cv::Rect &rect1, const cv::Rect &rect2)
@@ -122,13 +134,6 @@ void QuadricLandmark::AddObservation(KeyFrame *pKF, size_t idx)
     mObservations[pKF] = idx;
 
 
-    /*
-     * 单目只有一个观测，针对keypoint，对quadric暂时无意义
-    if(pKF->mvuRight[idx]>=0)
-        nObs+=2;
-    else
-        nObs++;
-    */
     nObs++;
     observed_frames.push_back(pKF);
 }
@@ -335,56 +340,220 @@ void QuadricLandmark::MergeIntoLandmark(QuadricLandmark *otherLocalObject)
     cout << "merge into landmark" << endl;
 }
 
-void QuadricLandmark::SaveTrajectory()
+
+void QuadricLandmark::CandidatePlanes(std::vector<Eigen::Vector4d>& vplanes,std::vector<Eigen::Vector4d>& convhull3d_normals,std::vector<Eigen::Vector4d>& candidate_planes)
 {
-    char temp[256];
-    std::string KeyFrameId, KeyFramePose;
+  for (int i = 4; i < 8;i++){
+    candidate_planes.push_back(vplanes[i]);
+  }
+  for (int  i = 0; i < convhull3d_normals.size(); i++){
+    candidate_planes.push_back(convhull3d_normals[i]);
+  }
+  for(int i = 0 ;i<candidate_planes.size();i++){
 
-    for (auto det =mObs.begin(); det !=mObs.end(); det++)
-    {
-        sprintf(temp, "%04d", (int)det->first->mnFrameId);
-        KeyFrameId.append(temp);
-        
+    cout<<"candidate_planes"<<candidate_planes[i]<<endl;
+  }
+}
+
+float QuadricLandmark::CheckInitialSucess()
+{
+    Eigen::Matrix3d kalib;
+    kalib = Converter::toMatrix3d(mObservations.begin()->first->mK);
+    std::vector<Eigen::Matrix<double, 3, 4>,
+                Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>
+        vProjMats;    
+
+    float aver_2d_iou = 0.0;
+    std::vector<Eigen::Vector4d> vDetectBox;
+
+    for (auto &det : mObservations)
+    {  
+         allObs.push_back(det);  //allObs will be duplicate,because it's the attribute of the quadric,must after sort then use unique 
+    }
+    stable_sort(allObs.begin(), allObs.end(), compare_map); 
+    vector<pair<KeyFrame*, int>>::iterator iter = unique(allObs.begin(),allObs.end());
+    allObs.erase(iter,allObs.end());
+
+
+    char dest[256];   // for change fileName 
+    strcpy(dest,"");
+    for (auto det =  allObs.begin(); det != allObs.end(); det++){
+        cout << "All Frame ID: " << det->first->mnFrameId << endl;
+        char suffix[256];
+        sprintf(suffix, "%04d", (int)det->first->mnFrameId);
+        strcat(dest,suffix);
+        cout <<"dest"<<dest << endl;
+
+        Eigen::Matrix<double,3,4> proj;
+        proj = kalib*Converter::toProjMat(det->first->GetPose());
+        vProjMats.push_back(proj);
+
+        conic_bbox = mQuadricMeas.projectOntoImageRect(Converter::toSE3Quat(det->first->GetPose()), kalib);
+        cout << "conic_bbox" << conic_bbox(0, 0) << " " << conic_bbox(1, 0) << " " << conic_bbox(2, 0) << " " << conic_bbox(3, 0) << endl;
+        cv::Rect rect_conic_bbox = cv::Rect (conic_bbox(0,0),conic_bbox(1,0),conic_bbox(2,0)-conic_bbox(0,0),conic_bbox(3,0)-conic_bbox(1,0));
+        cout<< " rect_conic_bbox "<< rect_conic_bbox << endl;
+ 
+        Eigen::Vector4d box;
+        int idx = det->second;
+        cv::Rect bbox_2d = det->first->mvpLocalObjects[idx]->bbox_2d;
+
+        float iou =  bboxOverlapratio(rect_conic_bbox,bbox_2d);
+        cout<<"2d_IoU" << iou<<endl;
+        aver_2d_iou += iou;
     }
 
-    KeyFramePose = QuadricLandmarkFolder + "CameraWorldPose_" + KeyFrameId + ".txt";
-    ofstream file;
-    file.open(KeyFramePose.c_str());
+    return aver_2d_iou/allObs.size();
+ 
 
-    for (auto det =mObs.begin(); det !=mObs.end(); det++)
+} 
+   
+void QuadricLandmark::GetVertices(std::vector<ch_vertex>dbscan_inliners,ch_vertex** out_vertices)
+{
+  
+  int inliner_numbers = dbscan_inliners.size();
+  (*out_vertices) = new ch_vertex[inliner_numbers];
+  for (int i = 0 ;i<inliner_numbers;i++){
+    (*out_vertices)[i].v[0] = dbscan_inliners[i].x;
+    (*out_vertices)[i].v[1] = dbscan_inliners[i].y;
+    (*out_vertices)[i].v[2] = dbscan_inliners[i].z;
+
+   }
+   
+}
+void QuadricLandmark::ClusterConvhull(std::vector<Eigen::Vector4d>& convhull3d_normals)
+{
+    std::vector<MapPoint *> mapPoints_own =mpAssocaitedLandmark->GetUniqueMapPoints();
+    std::vector<DBSCAN_Point> dbscan_points;
+    for (auto mapPoint : mapPoints_own)
     {
-        for (size_t i = 0; i < 4; i++)
-            for (size_t j = 0; j < 4; j++)
-                file << det->first->GetPoseInverse().at<float>(i, j) << " ";
-        file << endl;
+        cout << "3d=" << mapPoint->GetWorldPos() << endl;
+        DBSCAN_Point dbscan_point;
+        dbscan_point.x = mapPoint->GetWorldPos().at<float>(0,0);
+        dbscan_point.y = mapPoint->GetWorldPos().at<float>(1,0);
+        dbscan_point.z = mapPoint->GetWorldPos().at<float>(2,0);
+        dbscan_point.clusterID = UNCLASSIFIED;
+        dbscan_points.push_back(dbscan_point);
+
     }
+    DBSCAN ds(MINIMIUM_POINTS,EPSILON,dbscan_points);
+    ds.run();
+    vector<ch_vertex>dbscan_inliners;
+    for (int i = 0;i<ds.getTotalPointSize();i++){
+       cout<<"dbscan"<<ds.m_points[i].x<<" "<<ds.m_points[i].y<<" "<<ds.m_points[i].z<<" "<<ds.m_points[i].clusterID<<endl;
+       if(ds.m_points[i].clusterID == 1)
+        {
+           ch_vertex inliner;
+           inliner.x = ds.m_points[i].x;
+           inliner.y = ds.m_points[i].y;
+           inliner.z = ds.m_points[i].z;
+           dbscan_inliners.push_back(inliner);
+        }
+    }
+
+
+    ch_vertex* vertices = NULL;
+    GetVertices(dbscan_inliners,&vertices); 
+    int* out_faces = NULL;
+    int nOut_faces;
+    BuildConvhull3d(vertices,dbscan_inliners.size(),&out_faces,&nOut_faces); 
+    convhull3d_normals = Convhull3dNormals(vertices,dbscan_inliners.size(),out_faces,nOut_faces);
+    delete (vertices);
+    delete (out_faces);
+}
+     
+
+void QuadricLandmark::QuadricInitOneObs()
+{
+    
+    umask(0);
+    QuadricLandmarkFolderOneObs = "../kitti_raw/seq09_1frames_30/SaveQuadricLandmark/" +to_string(mnId)+"/";
+    mkdir(QuadricLandmarkFolderOneObs.c_str(), 0777); 
+    std::vector<Eigen::Matrix<double,4,1>,Eigen::aligned_allocator<Eigen::Matrix<double,4,1>>> vBoxes;
+    Eigen::Matrix<double,4,1> box;
+    
+    int idx = mObservations.begin()->second;
+    cv::Rect bbox_2d= mObservations.begin()->first->mvpLocalObjects[idx]->bbox_2d;
+    box = mObservations.begin()->first->mvpLocalObjects[idx]->RecttoVector4d(bbox_2d);
+    vBoxes.push_back(box);
+    
+    std::vector<Eigen::Matrix<double, 3, 4>,Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>vProjMats;
+
+    Eigen::Matrix3d kalib;
+    kalib = Converter::toMatrix3d(mObservations.begin()->first->mK);
+    
+    for (auto det = mObservations.begin(); det != mObservations.end(); det++)
+    {
+        Eigen::Matrix<double, 3, 4> temp;
+        cout << "OneObs_Init_Twc" << det->first->GetPoseInverse() << " " << det->first->mnFrameId << endl;
+        temp = kalib * Converter::toProjMat(det->first->GetPose());
+        cout << "OneObs_Init_projection " << det->first->mnFrameId << " " << temp << endl;
+        vProjMats.push_back(temp);
+    }
+    assert(vProjMats.size() == vBoxes.size());
+
+   
+    std::vector<Eigen::Vector3d> vLines;
+    
+    for (auto box:vBoxes)
+    {
+        vLines.push_back(Eigen::Vector3d(1, 0, -box(0)));
+        vLines.push_back(Eigen::Vector3d(0, 1, -box(1)));
+        vLines.push_back(Eigen::Vector3d(1, 0, -box(2)));
+        vLines.push_back(Eigen::Vector3d(0, 1, -box(3)));
+    }
+    assert(vLines.size() == 4 * vProjMats.size());
+    
+    //lines to Planes
+    std::vector<Eigen::Matrix<double,4,1>,Eigen::aligned_allocator<Eigen::Matrix<double,4,1>>> vPlanes;
+    for (std::size_t i = 0; i < vLines.size(); i++)
+    {
+        vPlanes.push_back(vProjMats[i / 4].transpose() * vLines[i]);
+    }
+    assert(vPlanes.size() == 4 * vProjMats.size());
+
+    mbIsInitializedOneObs = true;
+
+    SaveOneObsPlaneTwcMap(vPlanes);
 
 }
 
-void QuadricLandmark::SaveProjection(std::vector<Eigen::Matrix<double, 3, 4>,Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>&vProjMats)
+void QuadricLandmark::SaveOneObsPlaneTwcMap(std::vector<Eigen::Matrix<double,4,1>,Eigen::aligned_allocator<Eigen::Matrix<double,4,1>>>& vPlanes)
 {
-    char temp[256]; 
-    std::string KeyFrameId, projection;
-
-    for (auto det =mObs.begin(); det !=mObs.end(); det++)
-    {
-        sprintf(temp, "%04d", (int)det->first->mnFrameId);
-
-        KeyFrameId.append(temp);
+    ofstream OneObsPlane,OneObsTwc,OneObsMap;
+   
+    char mnFrameId[256],object[256];
+   
+    sprintf(mnFrameId, "%04d", (int)mObservations.begin()->first->mnFrameId); 
+    sprintf(object, "%d", (int)mObservations.begin()->second);
+    
+    string plane = QuadricLandmarkFolderOneObs+"Planes_"+mnFrameId+".txt";
+    OneObsPlane.open(plane.c_str());
+   
+    for(auto p=vPlanes.begin();p!=vPlanes.end();p++){
+        OneObsPlane<<(*p)[0]<<" "<<(*p)[1]<<" "<<(*p)[2]<<" "<<(*p)[3]<<endl;
     }
-    projection = QuadricLandmarkFolder + "initprojection_" + KeyFrameId + ".txt";
-    ofstream file;
-    file.open(projection.c_str());
-    for (auto p =vProjMats.begin(); p !=vProjMats.end(); p++)
+    string Twc = QuadricLandmarkFolderOneObs+"CameraWorldPose_"+mnFrameId+".txt";
+    OneObsTwc.open(Twc.c_str());
+
+    for (size_t i = 0; i < 4; i++)
+      for (size_t j = 0; j < 4; j++)
+         OneObsTwc<< mObservations.begin()->first->GetPoseInverse().at<float>(i, j) << " ";
+ 
+    string Map = QuadricLandmarkFolderOneObs+"MapWorldPose_"+mnFrameId+"_LocalId_" +object+".txt";
+    OneObsMap.open(Map.c_str());  
+
+    std::vector<MapPoint *> mapPoints_own =mpAssocaitedLandmark->GetUniqueMapPoints();
+    for (auto mapPoint : mapPoints_own)
     {
         for (size_t i = 0; i < 3; i++)
-            for (size_t j = 0; j < 4; j++)
-              file <<(*p)(i,j)<<" ";
-        file<<endl;
-        cout << "SaveProjection" << (*p)<< endl;
+            OneObsMap << mapPoint->GetWorldPos().at<float>(i, 0) << " ";
+
+        OneObsMap << endl;
     }
-    
+
 }
+
+
 void QuadricLandmark::SaveMapPoints()
 {
     //std::string saved_dir = QuadricLandmarkFolder;
@@ -413,6 +582,7 @@ void QuadricLandmark::SaveMapPoints()
     }
 
 }
+
 void QuadricLandmark::SavePlanes(std::vector<Eigen::Vector4d>& vPlanes)
 {
     ofstream file;
@@ -431,73 +601,105 @@ void QuadricLandmark::SavePlanes(std::vector<Eigen::Vector4d>& vPlanes)
     }
 }
 
-void QuadricLandmark::SaveQuadric()
+
+void QuadricLandmark::SaveProjection(std::vector<Eigen::Matrix<double, 3, 4>,Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>&vProjMats)
 {
-    ofstream file;
-    char temp[256] ;
-    std::string KeyFrameId, QuadricParam;
+    char temp[256]; 
+    std::string KeyFrameId, projection;
+
     for (auto det =mObs.begin(); det !=mObs.end(); det++)
     {
         sprintf(temp, "%04d", (int)det->first->mnFrameId);
+
         KeyFrameId.append(temp);
     }
-    QuadricParam = QuadricLandmarkFolder +"Quadric_"+ KeyFrameId + ".txt";
-    file.open(QuadricParam.c_str());
-    for (size_t i = 0; i < 3; i++)
-        file << mQuadricMeas.scale(i, 0) << " ";
-
-    cv::Mat QuadricPose = Converter::toCvMat(mQuadricMeas.pose);
-    for (size_t i = 0; i < 4; i++)
-for (size_t j = 0; j < 4; j++)
-            file << QuadricPose.at<float>(j, i) << " ";
-    file << endl;
-    cout << "Quadric Pose" << QuadricPose << endl;
+    projection = QuadricLandmarkFolder + "initprojection_" + KeyFrameId + ".txt";
+    ofstream file;
+    file.open(projection.c_str());
+    for (auto p =vProjMats.begin(); p !=vProjMats.end(); p++)
+    {
+        for (size_t i = 0; i < 3; i++)
+            for (size_t j = 0; j < 4; j++)
+              file <<(*p)(i,j)<<" ";
+        file<<endl;
+        cout << "SaveProjection" << (*p)<< endl;
+    }
 }
 
-void QuadricLandmark::SaveInitDetectBox(std::vector<Eigen::Vector4d>&vBoxes)
+
+void QuadricLandmark::SaveQuadric()
 {
-    ofstream file;
-    char temp[256],object[256];
-    std::string KeyFrameId, InitDetectBox;
+  
+    char temp[256];
+    for (auto det =mObs.begin(); det !=mObs.end(); det++)
+    {
+        std::string key_frame_id,QuadricParam;
+        ofstream file;
+        sprintf(temp, "%04d", (int)det->first->mnFrameId);
+        cout<<"temp"<<temp<<endl;
+        key_frame_id.append(temp);
+        cout<<"key_frame_id"<<key_frame_id<<endl;
+        QuadricParam = "../kitti_raw/seq09_3frames_30/Offline/Quadric_"+ key_frame_id + ".txt";
+        file.open(QuadricParam.c_str(),ios::app);
+        
+        mQuadricLocalMeas = mQuadricMeas.transform_to(Converter::toSE3Quat(det->first->GetPoseInverse())); //input:Twc
+
+        for (size_t i = 0; i < 3; i++)
+          file << mQuadricLocalMeas.scale(i, 0) << " ";
+        for (size_t i = 0; i < 3; i++)
+          file << mQuadricLocalMeas.pose.translation()(i,0) << " ";
+         
+        cv::Mat QuadricPose = Converter::toCvMat(mQuadricLocalMeas.pose);
+        cv::Mat QuadricR = QuadricPose(cv::Rect(0,0,3,3));
+        cout << "QuadricR" << QuadricR << endl;
+        vector<float> quater = Converter::toQuaternion(QuadricR);
+        for (size_t i = 0; i < quater.size() ; i++)
+             file << quater[i] << " ";
+        file << endl;
+
+        cout << "Quadric Pose" << QuadricPose << endl;
+    }
+}
+
+void QuadricLandmark::SaveTrajectory()
+{
+    char temp[256];
+    std::string KeyFrameId, KeyFramePose;
+
     for (auto det =mObs.begin(); det !=mObs.end(); det++)
     {
         sprintf(temp, "%04d", (int)det->first->mnFrameId);
         KeyFrameId.append(temp);
+        
     }
-    sprintf(object, "%d", (int)mObs.begin()->second);
-    InitDetectBox= QuadricLandmarkFolder + "init_"+ KeyFrameId + "_LocalId_" + object + ".txt";
-    file.open(InitDetectBox.c_str());
-    for(auto box=vBoxes.begin();box!=vBoxes.end();box++){
+
+    KeyFramePose = QuadricLandmarkFolder + "CameraWorldPose_" + KeyFrameId + ".txt";
+    ofstream file;
+    file.open(KeyFramePose.c_str());
+
+    for (auto det =mObs.begin(); det !=mObs.end(); det++)
+    {
         for (size_t i = 0; i < 4; i++)
-        {
-            file<<(*box)[i]<<" ";
-        }
+            for (size_t j = 0; j < 4; j++)
+                file << det->first->GetPoseInverse().at<float>(i, j) << " ";
         file << endl;
     }
+
 }
 
 void QuadricLandmark::QuadricInit()
-
 {
     //如果观测帧过少，或者quadric已经初始化，s则返回
-    if (mObservations.size() < 1)
+    if (mObservations.size() < 3)
     {
-        std::cout <<" 观测帧数过少 "<< std::endl;
+        std::cout <<" 观测帧数过少"<< std::endl;
         return;
     }
-    /*
-    if (mbIsInitialized == true)  
-    {
-       std::cout<<"quadric已初始化"<<std::endl;
-       return;
-    }*/
-
-    mnId = GetIncrementedIndex();
-
     umask(0);
-    QuadricLandmarkFolder = "../seq00_1frames_50/SaveQuadricLandmark/" +to_string(mnId)+"/";
+    QuadricLandmarkFolder = "../kitti_raw/seq09_3frames_30/SaveQuadricLandmark/" +to_string(mnId)+"/";
     mkdir(QuadricLandmarkFolder.c_str(), 0777); 
    
+
     for (auto &det : mObservations)
     {  
          mObs.push_back(det);
@@ -505,8 +707,8 @@ void QuadricLandmark::QuadricInit()
     stable_sort(mObs.begin(), mObs.end(), compare_map); 
 
     //begin init
-    std::cout << "begin quadriclandmark init..." << endl;
-    //提取bbox
+    std::cout << "begin to init quadriclandmark..." << endl;
+   
     std::vector<Eigen::Vector4d> vBoxes;
     for (auto det = mObs.begin(); det != mObs.end(); det++)
     {
@@ -517,16 +719,15 @@ void QuadricLandmark::QuadricInit()
         vBoxes.push_back(box);
     }
 
-    //SaveInitDetectBox(vBoxes);
 
     //提取kalib 计算projection matrix K*R|t 3*4
     std::vector<Eigen::Matrix<double, 3, 4>,
                 Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>
         vProjMats;
 
+    SaveTrajectory();
     Eigen::Matrix3d kalib; //随意哪一帧的K均可
     kalib = Converter::toMatrix3d(mObs.begin()->first->mK);
-    SaveTrajectory();
     for (auto det = mObs.begin(); det != mObs.end(); det++)
     {
         Eigen::Matrix<double, 3, 4> temp;
@@ -557,14 +758,21 @@ void QuadricLandmark::QuadricInit()
 
     assert(vPlanes.size() == 4 * vProjMats.size());
     SavePlanes(vPlanes);
-    //SaveProjection(vProjMats);
     SaveMapPoints();
+    std::vector<Vector4d> convhull3d_normals;
+  
+    //begin init
 
+    std::cout << "begin to cluster and construct convehull_3d..." << std::endl;
+    ClusterConvhull(convhull3d_normals);
+    vector<Vector4d> candidate_planes;
+    CandidatePlanes(vPlanes,convhull3d_normals,candidate_planes);
 
     //计算约束方程系数
+
     std::vector<Eigen::Matrix<double, 1, 10>> vPlanes_parameter;
     
-    for (auto pPlane = vPlanes.begin(); pPlane != vPlanes.end(); pPlane++)
+    for (auto pPlane = candidate_planes.begin(); pPlane != candidate_planes.end(); pPlane++)
     {
         Eigen::Matrix<double, 10, 1> temp;
 
@@ -601,20 +809,40 @@ void QuadricLandmark::QuadricInit()
     cout << "q_sol rows cols" << q_solution.rows() << "  " << q_solution.cols() << endl;
     cout << "q_sol rank" << q_lu.rank() << endl;
     std::cout << "q_solution" << q_solution << std::endl;
-    if (mMeasQuality > QUALITY_THRESHOLD)
+   
+    mQuadricMeas = g2o::Quadric();
+    mQuadricMeas.fromVector10d(q_solution);
+     
+    cout << "pose" << mQuadricMeas.pose << "scale" << mQuadricMeas.scale << endl;
+    SaveQuadric();
+
+   // if(0.7 > INIT_IOU_THRESHOLD){
+    if(CheckInitialSucess() > INIT_IOU_THRESHOLD){
+      mbIsInitialized = true;
+      std:cout<<"initialized quadric translation"<<mQuadricMeas.pose.translation()<<endl;  
+      double quadric_cam_dist = std::min(std::max(mQuadricMeas.pose.translation()(2),10.0),30.0);
+      mMeasQuality = (60.0-quadric_cam_dist)/40.0;
+      std::cout<<"mMeasQuality "<<mMeasQuality<<endl;
+    }
+
+      
+    
+    /*
+    if (mMeasQuality > INIT_IOU_THRESHOLD)
     {
 
         mQuadricMeas = g2o::Quadric();
         mQuadricMeas.fromVector10d(q_solution);
      
         cout << "pose" << mQuadricMeas.pose << "scale" << mQuadricMeas.scale << endl;
-        SaveQuadric();
+        /
         //mQuadricVertex = new g2o::VertexQuadric();//放入构造函数
         ///mpQuadricVertex->setEstimate(mQuadricMeas); //not optimized commited 
         KeyFrame *refframe = this->GetReferenceKeyFrame();
         mQuadricLocalMeas = mQuadricMeas.transform_to(Converter::toSE3Quat(refframe->GetPoseInverse())); //input:Twc
         mbIsInitialized = true;
     }
+    */
 }
 
 void QuadricLandmark::QuadricProjectToCurrent(KeyFrame *mCurrentKF)
@@ -632,7 +860,7 @@ void QuadricLandmark::QuadricProjectToCurrent(KeyFrame *mCurrentKF)
     {
 
         cout << " " << mPO->bbox_2d << " " << mPO->mnLocalId << endl;
-        cout << "overlap" << bboxOverlapratio(ConicBbox, mPO->bbox_2d) << endl;
+//        cout << "overlap" << bboxOverlapratio(ConicBbox, mPO->bbox_2d) << endl;
     }
 
     for (auto det = mObs.begin(); det != mObs.end(); det++)
@@ -644,6 +872,90 @@ void QuadricLandmark::QuadricProjectToCurrent(KeyFrame *mCurrentKF)
         cout << "Generate Quadric Frame ID: " << det->first->mnFrameId << " " << idx << " detect_box: " << bbox_2d << box << endl;
     }
 }
+void QuadricLandmark::QuadricProjectOneObs()
+{
+    string AssociateDetectFolder = QuadricLandmarkFolderOneObs + "DetectBoxAssocaite/";
+    string AssociateProjectionFolder = QuadricLandmarkFolderOneObs + "ProjectionAssociate/";
+    mkdir(AssociateDetectFolder.c_str(),0777);
+    mkdir(AssociateProjectionFolder.c_str(),0777);
+    
+    Eigen::Matrix3d kalib;
+    kalib = Converter::toMatrix3d(mObservations.begin()->first->mK);
+    std::vector<Eigen::Matrix<double, 3, 4>,
+                Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>
+        vProjMats;
+
+
+    std::vector<Eigen::Matrix<double,4,1>,
+                Eigen::aligned_allocator<Eigen::Matrix<double,4,1 >>> 
+        vDetectBox;
+
+    for (auto &det : mObservations)
+    {  
+         allObsfromOne.push_back(det);  //allObs will be duplicate,because it's the attribute of the quadric,must after sort then use unique 
+    }
+    stable_sort(allObsfromOne.begin(), allObsfromOne.end(), compare_map); 
+    vector<pair<KeyFrame*, int>>::iterator iter = unique(allObsfromOne.begin(),allObsfromOne.end());
+    allObsfromOne.erase(iter,allObsfromOne.end());
+
+
+    char dest[256];   // for change fileName 
+    strcpy(dest,"");
+    for (auto det =  allObsfromOne.begin(); det != allObsfromOne.end(); det++){
+        cout << "OneObs_All Frame ID: " << det->first->mnFrameId << endl;
+        char suffix[256];
+        sprintf(suffix, "%04d", (int)det->first->mnFrameId);
+        strcat(dest,suffix);
+        cout <<"OneObs_dest"<<dest << endl;
+
+        Eigen::Matrix<double,3,4> proj;
+
+        proj = kalib*Converter::toProjMat(det->first->GetPose());
+        vProjMats.push_back(proj);
+
+
+        //conic_bbox = mQuadricMeas.projectOntoImageRect(Converter::toSE3Quat(det->first->GetPose()), kalib);
+        //cout << "conic_bbox" << conic_bbox(0, 0) << " " << conic_bbox(1, 0) << " " << conic_bbox(2, 0) << " " << conic_bbox(3, 0) << endl;
+       
+        Eigen::Matrix<double,4,1> box;
+        int idx = det->second;
+        cv::Rect bbox_2d = det->first->mvpLocalObjects[idx]->bbox_2d;
+        box = det->first->mvpLocalObjects[idx]->RecttoVector4d(bbox_2d);
+        vDetectBox.push_back(box);
+        cout << "OneObs_box" << box(0, 0) << " " << box(1, 0) << " " << box(2, 0) << " " << box(3, 0) << endl;
+      
+    }
+
+    string temp = dest;
+
+    string projectName = AssociateProjectionFolder + "Projection_"+temp+".txt";
+    string detectName = AssociateDetectFolder + "Detect_"+temp+".txt";
+    ofstream projectionFile,detectFile;
+
+    projectionFile.open(projectName);
+    detectFile.open(detectName);
+    for (auto p = vProjMats.begin(); p != vProjMats.end(); p++)
+    {
+        for (size_t i = 0; i < 3; i++)
+            for (size_t j = 0; j < 4; j++)
+              projectionFile <<(*p)(i,j)<<" ";
+        projectionFile << endl;
+    }
+    
+    for(auto box = vDetectBox.begin(); box !=vDetectBox.end(); box++)
+    {
+        for (size_t i = 0; i < 4; i++)
+        {
+            detectFile<<(*box)[i]<<" ";
+        }
+        detectFile << endl;
+    }  
+
+    projectionFile.close();
+    detectFile.close();
+
+}
+
 
 void QuadricLandmark::QuadricProject()
 {
@@ -656,7 +968,7 @@ void QuadricLandmark::QuadricProject()
     kalib = Converter::toMatrix3d(mObservations.begin()->first->mK);
     std::vector<Eigen::Matrix<double, 3, 4>,
                 Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>
-        vProjMats;
+        vProjMats;    
 
     std::vector<Eigen::Vector4d> vDetectBox;
 
@@ -700,6 +1012,7 @@ void QuadricLandmark::QuadricProject()
 
     projectionFile.open(projectName);
     detectFile.open(detectName);
+    
     for (auto p = vProjMats.begin(); p != vProjMats.end(); p++)
     {
         for (size_t i = 0; i < 3; i++)
@@ -707,7 +1020,7 @@ void QuadricLandmark::QuadricProject()
               projectionFile <<(*p)(i,j)<<" ";
         projectionFile << endl;
     }
-
+     
     for(auto box = vDetectBox.begin(); box !=vDetectBox.end(); box++)
     {
         for (size_t i = 0; i < 4; i++)

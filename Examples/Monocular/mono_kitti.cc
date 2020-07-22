@@ -51,6 +51,8 @@ int main(int argc, char **argv)
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(argv[1],argv[2],nImages,ORB_SLAM2::System::MONOCULAR,atoi(argv[4]),true);
+    //SLAM.LoadMap("Map.bin");
+    LoadImages(string(argv[3]), vstrImageFilenames, vTimestamps);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
@@ -77,16 +79,17 @@ int main(int argc, char **argv)
         SLAM.DetectMonocular(im);
     }
     for(int ni=0;ni<nImages;ni++)
-  {
+    {
         double tframe = vTimestamps[ni]; 
 #ifdef COMPILEDWITHC11
-    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 #else
         std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
 #endif
 
         // Pass the image to the SLAM system
-     SLAM.TrackMonocular(tframe);
+        SLAM.TrackMonocular(tframe);
+
 
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -107,8 +110,8 @@ int main(int argc, char **argv)
 
         if(ttrack<T)
             usleep((T-ttrack)*1e6);
-        sleep(0.98);
-
+       
+        sleep(1);
    }
  }
  
@@ -137,7 +140,6 @@ int main(int argc, char **argv)
 
         // Pass the image to the SLAM system
         SLAM.TrackMonocular(im,tframe);
-        cout<<"off"<<endl;
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 #else
@@ -157,12 +159,10 @@ int main(int argc, char **argv)
 
         if(ttrack<T)
             usleep((T-ttrack)*1e6);
-        sleep(0.98);
+       sleep(1);
     }
-}
-    // Stop all threads
-    SLAM.Shutdown();
 
+}
     // Tracking time statistics
     sort(vTimesTrack.begin(),vTimesTrack.end());
     float totaltime = 0;
@@ -176,7 +176,10 @@ int main(int argc, char **argv)
 
     // Save camera trajectory
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");    
-
+    SLAM.SaveMap("Map.bin");
+    // Stop all threads
+    SLAM.Shutdown();
+    cout<<"Shutdown"<<endl;
     return 0;
 
 }

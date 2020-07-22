@@ -330,29 +330,39 @@ public:
               c(1)));
       }
     std::cout<<"theta"<<theta<<std::endl;
-    double radiiX = sqrt((2*(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5)))*(c(0)+c(2)+sqrt(pow(c(0)-c(2),2)+pow(c(1),2))))/(pow(c(1),2)-4*c(0)*c(2));
+    double radiiX1 = (-(sqrt((2*(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5)))*(c(0)+c(2)+sqrt(pow(c(0)-c(2),2)+pow(c(1),2))))))/(pow(c(1),2)-4*c(0)*c(2));
  
-    double radiiY = sqrt((2*(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5)))*(c(0)+c(2)-sqrt(pow(c(0)-c(2),2)+pow(c(1),2))))/(pow(c(1),2)-4*c(0)*c(2));
-     
-    double a1=radiiX*cos(theta);
-    double b1 =radiiY*sin(theta);
-    double c1 =radiiX*sin(theta);
-    double d1 =radiiY*cos(theta);
-    double width = sqrt(pow(a1,2)+pow(b1,2))*2;
-    double height = sqrt(pow(c1,2)+pow(d1,2))*2;
-    double X = centerX-width*0.5;
-    double Y = centerY-height*0.5;
-  
+    double radiiY1 = (-(sqrt((2*(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5)))*(c(0)+c(2)-sqrt(pow(c(0)-c(2),2)+pow(c(1),2))))))/(pow(c(1),2)-4*c(0)*c(2));
+    std::cout<<"raddd"<<radiiX1 <<" "<<radiiY1<<std::endl;
+    double radiiX = abs(sqrt((2*(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5)))*(c(0)+c(2)+sqrt(pow(c(0)-c(2),2)+pow(c(1),2))))/(pow(c(1),2)-4*c(0)*c(2)));
+ 
+    double radiiY = abs(sqrt((2*(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5)))*(c(0)+c(2)-sqrt(pow(c(0)-c(2),2)+pow(c(1),2))))/(pow(c(1),2)-4*c(0)*c(2)));
+    double X,Y,height,width = 0;
+    if(radiiX > 0 &&radiiY > 0){
+ 
+      double a1=radiiX*cos(theta);
+      double b1 =radiiY*sin(theta);
+      double c1 =radiiX*sin(theta);
+      double d1 =radiiY*cos(theta);
+      width = sqrt(pow(a1,2)+pow(b1,2))*2;
+      height = sqrt(pow(c1,2)+pow(d1,2))*2;
+      X = centerX-width*0.5;
+      Y = centerY-height*0.5;
+    }
+    else
+     {
+      X = Y = height = width = radiiY = radiiX = 0;
+    }
     std::cout<<"center"<<centerX<<" "<<centerY<<std::endl; 
     std::cout<<"sqrt"<<sqrt(2*(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5))*(c(0)+c(2)-sqrt(pow(c(0)-c(2),2)+pow(c(1),2))))<<std::endl;
     std::cout<<"SQRT"<<sqrt(pow(c(0)-c(2),2)+pow(c(1),2))<<std::endl;
     std::cout<<"sss"<<abs(c(0)*pow(c(4),2)+c(2)*pow(c(3),2)-c(1)*c(3)*c(4)+(pow(c(1),2)-4*c(0)*c(2))*c(5))<<std::endl;
-    std::cout<<"radix"<<radiiX<<" "<<radiiY<<" "<<a1<<" "<<b1<<" "<<c1<<" "<<d1<<std::endl;
-    std::cout<<"test"<<X<<" " <<Y<<" "<<X+width<<" "<<Y+height<<std::endl;//added by yxqc one method to compute conic_bbox 
+   std::cout<<"radix"<<radiiX<<" "<<radiiY<<" "<<std::endl;
+    std::cout<<"test"<<X<<" " <<Y<<" "<<X+width<<" "<<Y+height<<std::endl;//added by yxqc one method to compute conic_bbox;
+    std::cout<<"test_conic"<<topleft(0) <<" " << topleft(1) <<" "<<bottomright(0)<<" "<<bottomright(1)<<std::endl;
 
-
-
-    return Vector4d(topleft(0), topleft(1), bottomright(0), bottomright(1));
+    return Vector4d(X,Y,X+width,Y+height);
+    //return Vector4d(topleft(0), topleft(1), bottomright(0), bottomright(1));
   }
 
   //return x y w h

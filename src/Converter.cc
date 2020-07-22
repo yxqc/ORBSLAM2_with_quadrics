@@ -62,6 +62,20 @@ cv::Mat Converter::toCvMat(const g2o::SE3Quat &SE3)
     return toCvMat(eigMat);
 }
 
+cv::Mat Converter::toCvMat(const std::vector<float>& v)
+{
+    Eigen::Quaterniond q;
+    q.x() = v[0];
+    q.y() = v[1];
+    q.z() = v[2];
+    q.w() = v[3];
+
+    Eigen::Matrix<double,3,3> eigMat(q);
+    cv::Mat M = toCvMat(eigMat);
+    return M;
+}
+
+
 cv::Mat Converter::toCvMat(const g2o::Sim3 &Sim3)
 {
     Eigen::Matrix3d eigR = Sim3.rotation().toRotationMatrix();

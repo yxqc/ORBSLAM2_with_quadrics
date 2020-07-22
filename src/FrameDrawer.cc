@@ -128,21 +128,21 @@ cv::Mat FrameDrawer::DrawFrame()
         }
 
         int font = cv::FONT_HERSHEY_PLAIN;
-        for (size_t i = 0; i < bbox_2d_tight.size(); i++)
+        for (size_t i = 0; i < bbox_2d.size(); i++)
         {
-            //cv::rectangle(im, bbox_2d_tight[i], box_color[i % box_color.size()], 2);
-            cv::rectangle(im, bbox_2d_tight[i], box_color[0], 2);
+            //cv::rectangle(im, bbox_2d[i], box_color[i % box_color.size()], 2);
+            cv::rectangle(im, bbox_2d[i], box_color[0], 2);
 
             //std::string show_string(to_string(local_id[i])+"    "+to_string(prop[i]));
             std::string show_string(to_string(local_id[i]));
-            cv::putText(im, show_string, cv::Point(bbox_2d_tight[i].x + 5, bbox_2d_tight[i].y + 5), font, 1, cv::Scalar(255, 255, 255), 2, 8);
+            cv::putText(im, show_string, cv::Point(bbox_2d[i].x + 5, bbox_2d[i].y + 5), font, 1, cv::Scalar(255, 255, 255), 2, 8);
         }
         for (size_t j = 0; j < associate_bbox.size(); j++)
         {
 
             cv::rectangle(im, associate_bbox[j], box_color[associate_id[j] % box_color.size()], 2);
         }
-        string img_path = "./VisualImages/" + to_string(frame_id) + ".png";
+        string img_path = "../kitti_raw/seq93_3frames_30/VisualImages/" + to_string(frame_id) + ".png";
         imwrite(img_path, im);
     }
 
@@ -222,7 +222,7 @@ void FrameDrawer::Update(Tracking *pTracker)
     }
     mState = static_cast<int>(pTracker->mLastProcessedState);
     //added by yxqc  for  bbox viewer
-    bbox_2d_tight.clear();
+    bbox_2d.clear();
     prop.clear();
     associate_id.clear();
     //conic_bbox.clear();
@@ -231,7 +231,7 @@ void FrameDrawer::Update(Tracking *pTracker)
     frame_id = pTracker->mCurrentFrame.mnId;
     for (size_t j = 0; j < pTracker->mCurrentFrame.mvpLocalObjects.size(); j++)
     {
-        bbox_2d_tight.push_back(pTracker->mCurrentFrame.mvpLocalObjects[j]->bbox_2d_tight);
+        bbox_2d.push_back(pTracker->mCurrentFrame.mvpLocalObjects[j]->bbox_2d);
 
         prop.push_back(pTracker->mCurrentFrame.mvpLocalObjects[j]->prop);
         local_id.push_back(pTracker->mCurrentFrame.mvpLocalObjects[j]->mnLocalId);
@@ -250,7 +250,7 @@ void FrameDrawer::Update(Tracking *pTracker)
                     {
                         associate_id.push_back(mPO->mnId);
 
-                        associate_bbox.push_back(mPO->bbox_2d_tight);
+                        associate_bbox.push_back(mPO->bbox_2d);
                     }
                 }
             }

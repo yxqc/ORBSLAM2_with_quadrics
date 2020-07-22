@@ -86,7 +86,7 @@ void Detecting::Filter(det_box *dets, int online_num, int img_width, int img_hei
 void Detecting::Run()
 {
 
-  network *net = get_load_network("/home/autolab/ORBSLAM2_with_quadric/Thirdparty/darknet/cfg/yolov3.cfg", "/home/autolab/ORBSLAM2_with_quadric/Thirdparty/darknet/yolov3.weights");
+  network *net = get_load_network("/home/autolab/sjChen/QuadricSLAM_BasedOn_ORBSLAM2/Thirdparty/Darknet/cfg/yolov3.cfg", "/home/autolab/sjChen/QuadricSLAM_BasedOn_ORBSLAM2/Thirdparty/Darknet/yolov3.weights");
 
   while (1)
   {

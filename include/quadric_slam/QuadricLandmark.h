@@ -8,9 +8,9 @@
 #include <Eigen/SVD>
 #include <Eigen/StdVector>*/
 //#include <quadric_slam/build_quadric.hpp>
-#include <quadric_slam/g2o_Object.h>
+#include "quadric_slam/g2o_Object.h"
 #include <vector>
-
+#include"quadric_slam/Convhull_3d.h"
 #include "KeyFrame.h"
 #include "Frame.h"
 #include "Map.h"
@@ -40,6 +40,7 @@ class QuadricLandmark
 public:
     QuadricLandmark(Map *pMap, bool whether_update_index = false);
 
+    ~QuadricLandmark();
     float bboxOverlapratio(const cv::Rect &rect1, const cv::Rect &rect2);
 
     inline Eigen::Vector4d RecttoVector4d(cv::Rect &bbox_2d);
@@ -54,7 +55,7 @@ public:
 
    g2o::Quadric pose_Twc_afterba;
     
-    unsigned long int mnId;           //unique id
+    long int mnId;           //unique id
     static unsigned long int nNextId; //可理解为lastID
     static long int GetIncrementedIndex();
     //------local members------
@@ -70,7 +71,12 @@ public:
     double prop;                       // detection confidence
     double class_id;
     std::vector<int> associate_points; //feature points in bbox
+    
+    bool icraIsAssociated;
+    bool icraIsCandidate; 
+    bool icraIsInitialized;
 
+    bool mbIsInitializedOneObs;
     bool mbIsInitialized; //landmark state
     bool mbIsOptimized;   //是否已优化
     bool mbIsAssociated;  //是否已关联
@@ -124,17 +130,22 @@ public:
     g2o::SE3Quat GetWorldPosInv();
     g2o::Quadric GetWorldPosBA();
 
- 
+    void QuadricInitOneObs(); 
+    float CheckInitialSucess(); 
     void QuadricInit();
     void QuadricProject();
+    void QuadricProjectOneObs();
     void QuadricProjectToCurrent(KeyFrame* mCKF);
-    void SaveTrajectory();
     void SaveProjection(std::vector<Eigen::Matrix<double, 3, 4>,Eigen::aligned_allocator<Eigen::Matrix<double, 3, 4>>>&vProjMats);
     void SaveQuadric();
-    void SavePlanes(std::vector<Eigen::Vector4d>&vplanes);
-    void SaveInitDetectBox(std::vector<Eigen::Vector4d>&vBoxes);
-    void SaveMapPoints();
+    void SaveTrajectory();
+    void SavePlanes(std::vector<Vector4d>&vPlanes);
+    void SaveMapPoints(); 
+    void ClusterConvhull(std::vector<Eigen::Vector4d>& convhull3d_normals);
+    void CandidatePlanes(std::vector<Eigen::Vector4d>& vplanes,std::vector<Eigen::Vector4d>& convhull3d_normals,std::vector<Eigen::Vector4d>& candidate_planes); 
+    void SaveOneObsPlaneTwcMap(std::vector<Eigen::Matrix<double,4,1>,Eigen::aligned_allocator<Eigen::Matrix<double,4,1>>>&vplanes);
 
+    void GetVertices(std::vector<ch_vertex>inliners,ch_vertex** out_vertices);
     static std::mutex mGlobalMutex;
 
     std::vector<MapPoint *> GetUniqueMapPoints();
@@ -152,7 +163,7 @@ public:
     void MergeIntoLandmark(QuadricLandmark *otherLocalObject); // merge the points here. this should already be a landmark. observation should be added elsewhere
     void SetAsLandmark();
     int left_right_to_car;   //on the left or right of a car left =1 ,right=23 undecided =0  initial =-1;
-    string QuadricLandmarkFolder; //added by yxqc save data for offline init
+    string QuadricLandmarkFolder,QuadricLandmarkFolderOneObs; //added by yxqc save data for offline init
 
 
 protected:
@@ -161,7 +172,7 @@ protected:
     Map *mpMap;
     std::unordered_map<KeyFrame *, size_t> mObservations; //attention: to add mutex lock
     vector<pair<KeyFrame*, int>> mObs;  //added by yxqc  sort  the obsrevations by ascending order of KeyFrame frameID
-    vector<pair<KeyFrame*, int>> allObs; 
+    vector<pair<KeyFrame*, int>> allObs,allObsfromOne;    
 
     int nObs;                                             // observations' count
     std::set<MapPoint *> msAssociatedMP_unique;       // uniquedly owned  by this object;

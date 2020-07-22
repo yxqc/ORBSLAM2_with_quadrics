@@ -38,7 +38,8 @@ public:
     static g2o::SE3Quat toSE3Quat(const cv::Mat &cvT);
     static Eigen::Matrix<double, 3, 4> toProjMat(const cv::Mat &cvT); //to convert R|t
     static g2o::SE3Quat toSE3Quat(const g2o::Sim3 &gSim3);
-
+    
+    static cv::Mat toCvMat(const std::vector<float>& v);
     static cv::Mat toCvMat(const g2o::SE3Quat &SE3);
     static cv::Mat toCvMat(const g2o::Sim3 &Sim3);
     static cv::Mat toCvMat(const Eigen::Matrix<double, 4, 4> &m);

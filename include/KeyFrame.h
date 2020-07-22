@@ -29,7 +29,7 @@
 #include "Frame.h"
 #include "KeyFrameDatabase.h"
 #include <mutex>
-
+#include "InitKeyFrame.h"
 #include "quadric_slam/QuadricLandmark.h" //quadric slam
 #include "quadric_slam/g2o_Object.h"
 
@@ -41,11 +41,13 @@ class MapPoint;
 class Frame;
 class QuadricLandmark;
 class KeyFrameDatabase;
+class InitKeyFrame;//add for loading map
 class KeyFrame
 {
 public:
     KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB);
-
+    //add for loading map
+    KeyFrame(InitKeyFrame &initkf,Map* pMap,KeyFrameDatabase* pKFDB,vector<MapPoint*>& vpMapPoints);
     // Pose functions
     void SetPose(const cv::Mat &Tcw);
     cv::Mat GetPose();

@@ -26,3 +26,7 @@
 ## add object optimization without dynamic (need to be checked) 
 
 ### add one condition for KeyFrame in Tracking::NeedNewKeyFrame() const bool c1d
+
+##  finish quadric initization function 
+
+##  add save and load map function(mappoints and keyframes) need change Examples/Monocular/mono_kitt.cc

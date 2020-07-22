@@ -79,7 +79,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const in
 
     if (mbDetectMode)
     {
-        cout << "ONlin" << endl;
         //Create  the  Detector
         mpDetector = new Detecting(nImages);
         mptDetecting = new thread(&ORB_SLAM2::Detecting::Run, mpDetector);
@@ -119,9 +118,29 @@ System::System(const string &strVocFile, const string &strSettingsFile, const in
 
     mpLoopCloser->SetTracker(mpTracker);
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
+
+    mySettingFile = strSettingsFile; //add for loading map
 }
 
-//added by yxqc for Detecting images
+void System::SaveMap(const string&filename)
+{
+ 
+   mpMap->Save(filename);
+
+}
+
+
+//add load map
+void System::LoadMap(const string &filename)
+{
+     SystemSetting* mySystemSetting = new SystemSetting(mpVocabulary);
+     
+     mySystemSetting->LoadSystemSetting(mySettingFile);
+     mpMap->Load(filename,mySystemSetting);
+}
+
+//added by yxqc for Detecting image
+
 void System::DetectStereo(const cv::Mat &imLeft, const cv::Mat &imRight)
 {
     if (mSensor != STEREO)
@@ -439,14 +458,13 @@ void System::Reset()
 
 void System::Shutdown()
 {
-
     if (mbDetectMode)
     {
         delete mpDetector;
         mptDetecting->join();
         delete mptDetecting;
     }
-
+    
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
     if (mpViewer)
@@ -455,13 +473,11 @@ void System::Shutdown()
         while (!mpViewer->isFinished())
             usleep(5000);
     }
-
     // Wait until all thread have effectively stopped
     while (!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() || mpLoopCloser->isRunningGBA())
     {
         usleep(5000);
     }
-
     if (mpViewer)
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");
 }

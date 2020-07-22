@@ -23,6 +23,7 @@
 #include "quadric_slam/QuadricLandmark.h"
 #include "MapPoint.h"
 #include "KeyFrame.h"
+#include "SystemSetting.h"
 #include <set>
 
 #include <mutex>
@@ -32,6 +33,7 @@ namespace ORB_SLAM2
 
 class MapPoint;
 class KeyFrame;
+class SystemSetting;
 class QuadricLandmark;
 class Map
 {
@@ -59,14 +61,18 @@ public:
     long unsigned int GetMaxKFid();
 
     void clear();
+    void Load(const string &filename,SystemSetting* mySystemSetting);
+    MapPoint* LoadMapPoint(ifstream &f);
+    KeyFrame* LoadKeyFrame(ifstream &f,SystemSetting* mySystemSetting);
 
     vector<KeyFrame *> mvpKeyFrameOrigins;
-
+    void GetMapPointsIdx();
     std::mutex mMutexMapUpdate;
+    void Save(const string &f); //add for saving map
 
     // This avoid that two points are created simultaneously in separate threads (id conflict)
     std::mutex mMutexPointCreation;
-
+    std::map<MapPoint*,unsigned long int> mmpnMapPointsIdx;
     int img_height, img_width;
 
 protected:
@@ -74,6 +80,8 @@ protected:
     std::set<KeyFrame *> mspKeyFrames;
     std::set<QuadricLandmark *> mspQuadricLandmarks; /////addded by sjChen
     std::vector<MapPoint *> mvpReferenceMapPoints;
+    void SaveMapPoint(ofstream &f,MapPoint* mp);
+    void SaveKeyFrame(ofstream &f,KeyFrame* kf);
 
     long unsigned int mnMaxKFid;
 

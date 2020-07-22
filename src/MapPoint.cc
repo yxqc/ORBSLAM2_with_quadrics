@@ -71,6 +71,26 @@ MapPoint::MapPoint(const cv::Mat &Pos, Map *pMap, Frame *pFrame, const int &idxF
     mnId = nNextId++;
 }
 
+
+// add for loading map 
+MapPoint::MapPoint(const cv::Mat &Pos,Map* pMap):
+    mnFirstKFid(0), mnFirstFrame(0), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
+    mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(static_cast<KeyFrame*>(NULL)), mnVisible(1), mnFound(1), mbBad(false),
+    mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
+{
+     Pos.copyTo(mWorldPos);
+     mNormalVector = cv::Mat::zeros(3,1,CV_32F);
+
+     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
+     mnId = nNextId++;
+}
+
+//add for loading map
+KeyFrame* MapPoint::SetReferenceKeyFrame(KeyFrame* RFKF)
+{
+    return mpRefKF = RFKF;
+}
+
 void MapPoint::SetWorldPos(const cv::Mat &Pos)
 {
     unique_lock<mutex> lock2(mGlobalMutex);

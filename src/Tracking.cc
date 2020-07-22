@@ -153,11 +153,19 @@ Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
     }
 
     umask(0);
-    mkdir("../seq00_1frames_50/", 0777);
-    mkdir("../seq00_1frames_50/VisualImages/", 0777);
-    mkdir("../seq00_1frames_50/SaveQuadricLandmark/", 0777);
-    mkdir("../seq00_1frames_50/SaveKeyFrameTwc/", 0777);
-    mkdir("../seq00_1frames_50/SaveKeyFrameProjection/", 0777);
+    mkdir("../kitti_raw/seq09_1frames_30/", 0777);
+    mkdir("../kitti_raw/seq09_1frames_30/SaveQuadricLandmark/", 0777);
+    mkdir("../kitti_raw/seq09_1frames_30/SaveKeyFrameTwc/", 0777);
+    mkdir("../kitti_raw/seq09_1frames_30/SaveKeyFrameProjection/", 0777);
+
+    mkdir("../kitti_raw/seq09_3frames_30/", 0777);
+    mkdir("../kitti_raw/seq09_3frames_30/Offline/", 0777);
+    mkdir("../kitti_raw/seq09_3frames_30/VisualImages/", 0777);
+    mkdir("../kitti_raw/seq09_3frames_30/SaveQuadricLandmark/", 0777);
+    mkdir("../kitti_raw/seq09_3frames_30/SaveKeyFrameTwc/", 0777);
+    mkdir("../kitti_raw/seq09_3frames_30/SaveKeyFrameProjection/", 0777);
+    all_kf_quat_file.open("../kitti_raw/seq09_3frames_30/KeyFrameQuat.txt");
+    all_kf_Twc_file.open("../kitti_raw/seq09_3fames_30/KeyFrameTwc.txt");
 }
 
 void Tracking::SetLocalMapper(LocalMapping *pLocalMapper)
@@ -288,7 +296,7 @@ cv::Mat Tracking::GrabImageMonocular(const double &timestamp)
 
 void Tracking::SaveOnlineDetectBox(Frame *mCurrent)
 {
-    std::string saved_dir = "../SaveDetectBox/KITTI/seq05/";
+    std::string saved_dir = "../SaveDetectBox/kitti_raw/seq23/";
     char sequence_frame_index[256];
     sprintf(sequence_frame_index, "%04d", (int)mCurrent->mnId);
     std::string save_onlinebox_txt = saved_dir + sequence_frame_index + "_yolo3.txt";
@@ -303,15 +311,15 @@ void Tracking::SaveOnlineDetectBox(Frame *mCurrent)
 }
 
 
-/*void Tracking::SaveProjection(KeyFrame *pKF)
+void Tracking::SaveTwc_Projection(KeyFrame *pKF)
 {
     Eigen::Matrix<double, 3, 4> vProject;
     Eigen::Matrix3d Kalib;
     Kalib = Converter::toMatrix3d(pKF->mK);
     vProject= Kalib * Converter::toProjMat(pKF->GetPose());
     
-    std::string saved_dir_projection = "../seq00_1frames_50/SaveKeyFrameProjection/";
-    std::string saved_dir_Twc = "../seq00_1frames_50/SaveKeyFrameTwc/";
+    std::string saved_dir_projection = "../kitti_raw/seq09_3frames_30/SaveKeyFrameProjection/";
+    std::string saved_dir_Twc = "../kitti_raw/seq09_3frames_30/SaveKeyFrameTwc/";
 
     char sequence_frame_index[256];
     sprintf(sequence_frame_index,"%04d",(int)pKF->mnFrameId);
@@ -335,9 +343,29 @@ void Tracking::SaveOnlineDetectBox(Frame *mCurrent)
              file_Twc <<pKF->GetPoseInverse().at<float>(i,j)<<" ";
         }
     file_Twc.close();
+  
+    all_kf_Twc_file<<sequence_frame_index<<" ";
+    for (size_t i = 0; i < 4; i++)
+        for (size_t j = 0; j < 4; j++)
+        {
+             all_kf_Twc_file<<pKF->GetPoseInverse().at<float>(i,j)<<" ";
+        }
+    all_kf_Twc_file<<endl;
 
 
-}*/
+    all_kf_quat_file << fixed;
+    cv::Mat R = pKF->GetRotation().t();
+    cout<<"keyframe_rotaion"<<R<<endl;
+    vector<float> q = Converter::toQuaternion(R);
+    cv::Mat t = pKF->GetCameraCenter();
+    
+    all_kf_quat_file <<sequence_frame_index<<" "<<setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
+          << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+
+
+    
+}
+
 
 
 void Tracking::PointAssociateObject(Frame *pKF)
@@ -488,10 +516,10 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     if (mState == NOT_INITIALIZED || mState == NO_IMAGES_YET)
         mCurrentFrame = Frame(mImGray, timestamp, mpIniORBextractor, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpMap);
     else
-        mCurrentFrame = Frame(mImGray, timestamp, mpORBextractorLeft, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpMap);
+        mCurrentFrame = Frame(mImGray, timestamp, mpORBextractorLeft, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth,mpMap);
     for (int i = 0; i < mCurrentFrame.mvpLocalObjects.size(); i++)
     {
-        QuadricLandmark *local_object = mCurrentFrame.mvpLocalObjects[i];
+        QuadricLandmark* local_object = mCurrentFrame.mvpLocalObjects[i];
         cout << "Local Object ID = " << local_object->mnLocalId << " Bboxtight(cv::Rect)= " << local_object->bbox_2d << local_object->prop << " " << local_object->class_id << endl;
     }
     PointAssociateObject(&mCurrentFrame); //added by yxqc associate keypoints with local objects
@@ -501,14 +529,17 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     return mCurrentFrame.mTcw.clone();
 }
 
-void Tracking::AssociateBbox(KeyFrame *pKF)
+
+
+
+void Tracking::AssociateBbox(KeyFrame* pKF)
 {
-    //SaveProjection(pKF);//for offline init
+    SaveTwc_Projection(pKF);//for offline init
     std::vector<QuadricLandmark *> LocalObjectsCandidates; // not associated;they are in mvpLocalObjects
     std::vector<QuadricLandmark *> LocalObjectsAssociated; //already associated but not initialized;they are in mvpLandmark;observations less than 3
     std::set<QuadricLandmark *> LocalObjectsLandmarks;  //already initialized (they are in mvpLandmark and in Map) wait for update
 
-    int object_own_point_threshold = 50;
+    int object_own_point_threshold = 30;
     size_t nKFs = mvpLocalKeyFrames.size();
     for (size_t i = 0; i < nKFs; i++)
     {
@@ -516,6 +547,9 @@ void Tracking::AssociateBbox(KeyFrame *pKF)
         for (size_t j = 0; j < kfs->mvpLocalObjects.size(); j++)
         {
             QuadricLandmark *pQuadric = kfs->mvpLocalObjects[j];
+           //if(!pQuadric->icraIsInitialized)
+              //icraQuadric(pQuadric,kfs);
+
             if (!pQuadric->mbIsCandidate)
             {
                 pQuadric->CheckIsValidObject(object_own_point_threshold);
@@ -605,11 +639,12 @@ void Tracking::AssociateBbox(KeyFrame *pKF)
             candidateObject->AddObservation(refframe, candidateObject->mnLocalId);
             refframe->mvpQuadricLandmarks.push_back(candidateObject);
             cout << "New" << candidateObject->bbox_2d << " " << candidateObject->mbIsAssociated << endl;
-            //candidateObject->mnId = QuadricLandmark::GetIncrementedIndex(); //can't add mnId now,because some new landmarks will not be asscoiated (few measurement)
+            candidateObject->mnId = QuadricLandmark::GetIncrementedIndex(); //can't add mnId now,because some new landmarks will not be asscoiated (few measurement)
             //cout<<"mnid"<<candidateObject->mnId<<endl;   
             candidateObject->mpAssocaitedLandmark = candidateObject;
             candidateObject->SetAsLandmark();
             last_new_created_object = candidateObject;
+            candidateObject->QuadricInitOneObs();
 
         }
         else
@@ -649,6 +684,159 @@ void Tracking::AssociateBbox(KeyFrame *pKF)
     }
 }
 
+/*
+void Tracking::AssociateBbox(KeyFrame* pKF)
+{
+    SaveTwc_Projection(pKF);//for offline init
+    std::vector<QuadricLandmark *> LocalObjectsCandidates; // not associated;they are in mvpLocalObjects
+    std::vector<QuadricLandmark *> LocalObjectsAssociated; //already associated but not initialized;they are in mvpLandmark;observations less than 3
+    std::set<QuadricLandmark *> LocalObjectsLandmarks;  //already initialized (they are in mvpLandmark and in Map) wait for update
+
+    int object_own_point_threshold = 30;
+    size_t nKFs = mvpLocalKeyFrames.size();
+    for (size_t i = 0; i < nKFs; i++)
+    {
+        KeyFrame *kfs = mvpLocalKeyFrames[i];
+        for (size_t j = 0; j < kfs->mvpLocalObjects.size(); j++)
+        {
+            QuadricLandmark *pQuadric = kfs->mvpLocalObjects[j];
+            if(!pQuadric->icraIsInitialized)
+              icraQuadric(pQuadric,kfs);
+
+            if (!pQuadric->mbIsCandidate)
+            {
+                pQuadric->CheckIsValidObject(object_own_point_threshold);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < nKFs; i++)
+    {
+        KeyFrame *kfs = mvpLocalKeyFrames[i];
+
+        for (size_t j = 0; j < kfs->mvpLocalObjects.size(); j++)
+
+        {
+            QuadricLandmark *mPO = kfs->mvpLocalObjects[j];
+            if (!mPO->mbIsAssociated && mPO->mbIsCandidate)
+                LocalObjectsCandidates.push_back(mPO);
+        }
+        for (size_t j = 0; j < kfs->mvpQuadricLandmarks.size(); j++)
+        {
+            QuadricLandmark *mPO = kfs->mvpQuadricLandmarks[j];
+            if (mPO)
+                if (!mPO->isBad())
+                {
+                    if (mPO->mbIsAssociated)
+                        if (mPO->mnAssociationRefidInTracking != pKF->mnId)
+                        {
+                            LocalObjectsAssociated.push_back(mPO);
+                            mPO->mnAssociationRefidInTracking = pKF->mnId;
+                        }
+                    if(mPO->mbIsInitialized)
+                    { 
+                       LocalObjectsLandmarks.insert(mPO); //need change project landmark to new frame
+                    }
+
+                }
+        }
+    }
+
+    for (set<QuadricLandmark *>::iterator mPO = LocalObjectsLandmarks.begin(); mPO != LocalObjectsLandmarks.end(); mPO++)
+    {
+        (*mPO)->QuadricProjectToCurrent(pKF);
+    
+    }
+
+    QuadricLandmark *last_new_created_object = nullptr;
+
+    int largest_shared_nums_thres = 10;
+    for (size_t i = 0; i < LocalObjectsCandidates.size(); i++)
+    {
+        if (last_new_created_object)
+            LocalObjectsAssociated.push_back(last_new_created_object);
+        last_new_created_object = nullptr;
+        QuadricLandmark *candidateObject = LocalObjectsCandidates[i];
+
+        std::vector<MapPoint *> object_ownd_pts = candidateObject->GetPotentialMapPoints();
+        QuadricLandmark *largest_shared_objectlandmark = nullptr;
+
+        if (LocalObjectsAssociated.size() > 0)
+        {
+            map<QuadricLandmark *, int> LandmarkObserveConter;
+            for (size_t j = 0; j < object_ownd_pts.size(); j++)
+                for (map<QuadricLandmark *, int>::iterator mit = object_ownd_pts[j]->MapObjObservations.begin(); mit != object_ownd_pts[j]->MapObjObservations.end(); mit++)
+                {
+                    LandmarkObserveConter[mit->first]++;
+                }
+            int largest_shared_nums_points = largest_shared_nums_thres;
+            for (size_t j = 0; j < LocalObjectsAssociated.size(); j++)
+            {
+                QuadricLandmark *pQuadric = LocalObjectsAssociated[j];
+                if (!pQuadric->isBad())
+                    if (LandmarkObserveConter.count(pQuadric))
+                    {
+                        if (LandmarkObserveConter[pQuadric] > largest_shared_nums_points)
+                        {
+                            largest_shared_objectlandmark = pQuadric;
+                            largest_shared_nums_points = LandmarkObserveConter[pQuadric];
+                        }
+                    }
+            }
+        }
+        if (largest_shared_objectlandmark == nullptr)
+        {
+            candidateObject->mbIsAssociated = true;
+            KeyFrame *refframe = candidateObject->GetReferenceKeyFrame();
+
+            candidateObject->AddObservation(refframe, candidateObject->mnLocalId);
+            refframe->mvpQuadricLandmarks.push_back(candidateObject);
+            cout << "New" << candidateObject->bbox_2d << " " << candidateObject->mbIsAssociated << endl;
+            candidateObject->mnId = QuadricLandmark::GetIncrementedIndex(); //can't add mnId now,because some new landmarks will not be asscoiated (few measurement)
+            //cout<<"mnid"<<candidateObject->mnId<<endl;   
+            candidateObject->mpAssocaitedLandmark = candidateObject;
+            candidateObject->SetAsLandmark();
+            last_new_created_object = candidateObject;
+            candidateObject->QuadricInitOneObs();
+
+        }
+        else
+        {
+            candidateObject->mbIsAssociated = true;
+            KeyFrame *refframe = candidateObject->GetReferenceKeyFrame();
+            largest_shared_objectlandmark->AddObservation(refframe, candidateObject->mnLocalId);
+            refframe->mvpQuadricLandmarks.push_back(largest_shared_objectlandmark);
+            candidateObject->mpAssocaitedLandmark = largest_shared_objectlandmark;
+            largest_shared_objectlandmark->MergeIntoLandmark(candidateObject);
+            cout << "Associate success" << refframe->mnFrameId << " " << candidateObject->bbox_2d << " " << candidateObject->mnLocalId << "with pKF" << largest_shared_objectlandmark->GetReferenceKeyFrame()->mnFrameId << " " << largest_shared_objectlandmark->bbox_2d << " " << largest_shared_objectlandmark->mnLocalId << endl;
+        }
+    }
+    bool remove_object_outlier = true;
+    int minmum_object_observation = 1;
+    bool check_objects_points = true;
+
+    if (remove_object_outlier)
+    {
+        vector<QuadricLandmark *> all_objects = mpMap->GetAllQuadricLandmarks();
+        for (size_t i = 0; i < all_objects.size(); i++)
+        {
+            QuadricLandmark *pObject = all_objects[i];
+            if (!pObject->isBad() && (!pObject->isGood))
+                if ((int)pObject->GetLatestKeyFrame()->mnId < (int)pKF->mnId - 15)
+                {
+                    bool no_enough_inlier_pts = check_objects_points && (pObject->NumUniqueMapPoints() > 20) && (pObject->used_points_in_BA_filtered.size() < 10) && (pObject->point_quadric_BA_counter > -1);
+                    if (pObject->Observations() < minmum_object_observation)
+                    {
+                        pObject->SetBadFlag();
+                        cout << "found one bad object" << pObject->mnId << " " << pObject->Observations() << " " << pObject->used_points_in_BA_filtered.size() << endl;
+                    }
+                    else
+                        pObject->isGood = true;
+                }
+        }
+    }
+}
+*/
 void Tracking::Track()
 {
     if (mState == NO_IMAGES_YET)
@@ -1771,6 +1959,8 @@ void Tracking::InitQuadric()
 {
     std::set<QuadricLandmark *> LocalObjectInit; //已关联、未初始化的object集合 set 防止landmark冗余
     std::set<QuadricLandmark *> quadricLandmark; //已初始化
+    std::set<QuadricLandmark *> quadricLandmarkOneObs; //已单帧初始化
+
     for (size_t i = 0; i < mvpLocalKeyFrames.size(); i++)
     {
         KeyFrame *pKF = mvpLocalKeyFrames[i];
@@ -1783,6 +1973,8 @@ void Tracking::InitQuadric()
                     LocalObjectInit.insert(mPO);
                 if(!mPO->isBad() && mPO->mbIsInitialized)
                     quadricLandmark.insert(mPO);
+                if(!mPO->isBad() && mPO->mbIsInitializedOneObs)
+                   quadricLandmarkOneObs.insert(mPO);
         }
     }
     for (set<QuadricLandmark *>::iterator mPO = LocalObjectInit.begin(); mPO != LocalObjectInit.end(); mPO++)
@@ -1792,13 +1984,20 @@ void Tracking::InitQuadric()
         if ((*mPO)->mbIsInitialized)
         {
             mpMap->AddQuadricLandmark((*mPO));
-            cout << "initialze success" << (*mPO)->nNextId << "pose" << (*mPO)->mQuadricMeas.pose << "scare" << (*mPO)->mQuadricMeas.scale << endl;
+            cout << "initialze success" << (*mPO)<< "pose" << (*mPO)->mQuadricMeas.pose << "scare" << (*mPO)->mQuadricMeas.scale << endl;
             
         }
     }
+
+
     for(set<QuadricLandmark *>::iterator mPO = quadricLandmark.begin(); mPO != quadricLandmark.end(); mPO++){  
         (*mPO)->QuadricProject();  
     }
+    for(set<QuadricLandmark *>::iterator mPO = quadricLandmarkOneObs.begin(); mPO != quadricLandmarkOneObs.end(); mPO++){  
+        (*mPO)->QuadricProjectOneObs();  
+ 
+ }
+    
 
 }
 

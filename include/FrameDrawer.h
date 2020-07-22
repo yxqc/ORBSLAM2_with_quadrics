@@ -49,7 +49,7 @@ public:
 
 protected:
     //added by yxqc for draw the detecting results
-    std::vector<cv::Rect> bbox_2d_tight;
+    std::vector<cv::Rect> bbox_2d;
     std::vector<cv::Rect> associate_bbox;
     std::vector<int> associate_id;
     std::vector<cv::Scalar> box_color;
